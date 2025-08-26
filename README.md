@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 pitch_perfect/
 │
 ├── README.md
@@ -124,3 +125,7 @@ pitch_perfect/
     ├── Dockerfile
     ├── docker-compose.yml
     └── requirements-docker.txt
+=======
+# pitch_perfect
+AI voice clone
+>>>>>>> f8e40be18c600f6cea6b686d51c76afea67d1317
