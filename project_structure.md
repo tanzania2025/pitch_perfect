@@ -26,14 +26,12 @@ pitch_perfect/
 │   ├── interim/
 │   └── external/
 │
-├── src/
+├── pitchperfect/
 │   ├── __init__.py
 │   │
 │   ├── speech_to_text/
 │   │   ├── __init__.py
-│   │   ├── transcriber.py
-│   │   ├── models.py
-│   │   └── utils.py
+│   │   └── transcriber.py
 │   │
 │   ├── text_sentiment_analysis/
 │   │   ├── __init__.py

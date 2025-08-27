@@ -39,7 +39,7 @@ clean: ## Clean temporary files and cache
 	@echo "Cleaned temporary files."
 
 test: ## Run tests
-	pytest tests/ -v --cov=src --cov-report=html --cov-report=term
+	pytest tests/ -v --cov=pitchperfect --cov-report=html --cov-report=term
 
 test-unit: ## Run unit tests only
 	pytest tests/unit/ -v
@@ -48,13 +48,14 @@ test-integration: ## Run integration tests only
 	pytest tests/integration/ -v
 
 lint: ## Run linting
-	flake8 src/ tests/
-	black --check src/ tests/
-	isort --check-only src/ tests/
+	flake8 pitchperfect/ tests/
+	black --check pitchperfect/ tests/
+	isort --check-only pitchperfect/ tests/
+
 
 format: ## Format code
-	black src/ tests/
-	isort src/ tests/
+	black pitchperfect/ tests/
+	isort pitchperfect/ tests/
 	@echo "Code formatted successfully."
 
 preprocess-data: ## Preprocess MELD dataset
@@ -103,26 +104,26 @@ tts-dev: ## Development environment for TTS team
 # Utility targets
 check-env: ## Check if environment variables are set
 	@echo "Checking environment variables..."
-	@python -c "
-import os
-required_vars = ['ELEVENLABS_API_KEY']
-optional_vars = ['OPENAI_API_KEY', 'ANTHROPIC_API_KEY']
-missing_required = [var for var in required_vars if not os.getenv(var)]
-missing_optional = [var for var in optional_vars if not os.getenv(var)]
-if missing_required:
-    print('❌ Missing required environment variables:', ', '.join(missing_required))
-    exit(1)
-if missing_optional:
-    print('⚠️  Missing optional environment variables:', ', '.join(missing_optional))
-print('✅ Environment variables check passed')
-"
+	@python - <<-'PY'
+	import os
+	required_vars = ['OPENAI_API_KEY', 'ELEVENLABS_API_KEY']
+	optional_vars = ['ANTHROPIC_API_KEY']
+	missing_required = [var for var in required_vars if not os.getenv(var)]
+	missing_optional = [var for var in optional_vars if not os.getenv(var)]
+	if missing_required:
+	    print('❌ Missing required environment variables:', ', '.join(missing_required))
+	    raise SystemExit(1)
+	if missing_optional:
+	    print('⚠️  Missing optional environment variables:', ', '.join(missing_optional))
+	print('✅ Environment variables check passed')
+	PY
 
 pipeline-test: ## Test the complete pipeline
-	python -c "
-from src.pipeline.orchestrator import MainPipeline
-pipeline = MainPipeline()
-print('✅ Pipeline initialization successful')
-"
+	python - <<-'PY'
+	from src.pipeline.orchestrator import MainPipeline
+	pipeline = MainPipeline()
+	print('✅ Pipeline initialization successful')
+	PY
 
 # Database/Data management
 backup-models: ## Backup trained models

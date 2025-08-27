@@ -20,7 +20,7 @@ pitch_perfect/
 ├── config/                 # Configuration files and model settings
 ├── raw_data/              # Raw audio datasets (MELD)
 ├── data/                  # Processed and intermediate data
-├── src/                   # Core source code
+├── pitchperfect/          # Core source code package
 │   ├── speech_to_text/    # Audio transcription modules
 │   ├── text_sentiment_analysis/  # Sentiment analysis
 │   ├── tonal_analysis/    # Voice tone and pitch analysis
@@ -101,7 +101,7 @@ OUTPUT_DIR=./outputs
 ### Basic Pipeline
 
 ```python
-from src.pipeline.orchestrator import PipelineOrchestrator
+from pitchperfect.pipeline.orchestrator import PipelineOrchestrator
 
 # Initialize the pipeline
 orchestrator = PipelineOrchestrator()
@@ -124,7 +124,7 @@ print(f"Generated audio: {result.output_audio_path}")
 
 #### Speech-to-Text
 ```python
-from src.speech_to_text.transcriber import AudioTranscriber
+from pitchperfect.speech_to_text.transcriber import AudioTranscriber
 
 transcriber = AudioTranscriber()
 transcript = transcriber.transcribe("audio.wav")
@@ -132,7 +132,7 @@ transcript = transcriber.transcribe("audio.wav")
 
 #### Sentiment Analysis
 ```python
-from src.text_sentiment_analysis.analyzer import SentimentAnalyzer
+from pitchperfect.text_sentiment_analysis.analyzer import SentimentAnalyzer
 
 analyzer = SentimentAnalyzer()
 sentiment = analyzer.analyze("Your text here")
@@ -140,7 +140,7 @@ sentiment = analyzer.analyze("Your text here")
 
 #### Voice Cloning
 ```python
-from src.text_to_speech.voice_cloning import VoiceCloner
+from pitchperfect.text_to_speech.voice_cloning import VoiceCloner
 
 cloner = VoiceCloner()
 audio = cloner.clone_voice("Text to speak", "target_voice_id")
@@ -154,7 +154,7 @@ Run the test suite:
 pytest
 
 # With coverage
-pytest --cov=src
+pytest --cov=pitchperfect
 
 # Specific test categories
 pytest tests/unit/
@@ -210,9 +210,9 @@ pip install -r requirements.txt
 pre-commit install
 
 # Code formatting
-black src/ tests/
-isort src/ tests/
-flake8 src/ tests/
+black pitchperfect/ tests/
+isort pitchperfect/ tests/
+flake8 pitchperfect/ tests/
 ```
 
 ## 📄 License

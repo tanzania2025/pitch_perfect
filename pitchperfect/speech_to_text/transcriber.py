@@ -13,7 +13,6 @@ except Exception:  # pragma: no cover
 
 
 def _ensure_env_loaded() -> None:
-    # Load .env if present; do this lazily so library import doesn't have side effects
     dotenv.load_dotenv(override=False)
 
 
@@ -28,13 +27,7 @@ def _hash_file(file_path: Path, extra: str = "") -> str:
 
 
 class AudioTranscriber:
-    """Transcribe audio using OpenAI Whisper with optional disk caching.
-
-    Caching strategy:
-    - For each audio file, compute a SHA256 of contents + model name + language + prompt.
-    - Store transcript JSON at outputs/transcripts/<hash>.json
-    - On subsequent calls, reuse cached transcript when available.
-    """
+    """Transcribe audio using OpenAI Whisper with optional disk caching."""
 
     def __init__(
         self,
@@ -84,10 +77,6 @@ class AudioTranscriber:
         cache_path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
 
     def transcribe(self, audio_path: str | Path) -> dict:
-        """Transcribe a single audio file.
-
-        Returns a dict with at least: { "text": str, "segments": Optional[List[dict]], "language": Optional[str] }
-        """
         if openai is None:
             raise RuntimeError("openai package is not installed. Please install from requirements.txt")
 
@@ -111,7 +100,6 @@ class AudioTranscriber:
                 temperature=0,
             )
 
-        # The OpenAI python client returns a pydantic-like object; coerce to dict
         result = json.loads(response.model_dump_json()) if hasattr(response, "model_dump_json") else json.loads(str(response))
 
         payload = {
@@ -128,13 +116,12 @@ class AudioTranscriber:
         return payload
 
     def transcribe_batch(self, audio_paths: Iterable[str | Path]) -> List[Tuple[str, dict]]:
-        """Transcribe multiple audio files. Returns list of (path, result_dict)."""
         results: List[Tuple[str, dict]] = []
         for ap in audio_paths:
             ap_path = Path(ap)
             try:
                 result = self.transcribe(ap_path)
-            except Exception as exc:  # Do not fail whole batch
+            except Exception as exc:
                 result = {"error": str(exc), "text": ""}
             results.append((str(ap_path), result))
         return results
