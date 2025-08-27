@@ -42,7 +42,6 @@ pitch_perfect/
 ### Prerequisites
 
 - Python 3.8+
-- CUDA-compatible GPU (recommended for optimal performance)
 - FFmpeg for audio processing
 
 ### Quick Start
