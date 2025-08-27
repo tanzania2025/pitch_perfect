@@ -23,8 +23,11 @@ pitch_perfect/
 ├── data/
 │   ├── __init__.py
 │   ├── processed/
+│   │   └── meld_wav/          # Converted WAV files from MELD
 │   ├── interim/
+│   │   └── MELD/              # Organized MELD splits (train/dev/test)
 │   └── external/
+│       └── MELD.Raw/          # Original MELD dataset
 │
 ├── pitchperfect/
 │   ├── __init__.py
@@ -63,12 +66,16 @@ pitch_perfect/
 │   │   ├── data_flow.py
 │   │   └── validators.py
 │   │
-│   └── utils/
+│   ├── utils/
+│   │   ├── __init__.py
+│   │   ├── audio_processing.py
+│   │   ├── file_handlers.py
+│   │   ├── logging_config.py
+│   │   └── visualization.py
+│   │
+│   └── data/
 │       ├── __init__.py
-│       ├── audio_processing.py
-│       ├── file_handlers.py
-│       ├── logging_config.py
-│       └── visualization.py
+│       └── meld_loader.py      # MELD dataset loader and utilities
 │
 ├── tests/
 │   ├── __init__.py
@@ -98,6 +105,7 @@ pitch_perfect/
 │   ├── setup_environment.sh
 │   ├── download_models.py
 │   ├── preprocess_meld.py
+│   ├── organize_meld.py        # Organize MELD data from external to interim
 │   ├── train_models.py
 │   └── demo.py
 │

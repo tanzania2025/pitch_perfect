@@ -70,11 +70,30 @@ pitch_perfect/
    # Edit .env with your API keys and configuration
    ```
 
-4. **Download models and data**
+4. **Organize and prepare MELD dataset**
+   ```bash
+   # Organize MELD data from external to interim folder
+   make organize-meld
+
+   # Convert MP4 files to WAV format (requires ffmpeg)
+   make meld-to-wav
+   ```
+
+5. **Download models and data**
    ```bash
    python scripts/download_models.py
    python scripts/preprocess_meld.py
    ```
+
+## 📊 MELD Dataset Workflow
+
+The project includes a streamlined workflow for processing the MELD (Multimodal EmotionLines Dataset):
+
+1. **Organize**: `make organize-meld` - Copies and organizes MELD.Raw data from `data/external/` to `data/interim/MELD/` with proper train/dev/test splits
+2. **Convert**: `make meld-to-wav` - Converts MP4 files to WAV format using ffmpeg, preserving directory structure
+3. **Process**: Use the processed WAV files in `data/processed/meld_wav/` for training and analysis
+
+**Requirements**: ffmpeg must be installed and available in PATH for audio conversion.
 
 ## 🔧 Configuration
 

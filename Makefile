@@ -132,3 +132,9 @@ backup-models: ## Backup trained models
 restore-models: ## Restore models from backup (specify BACKUP_FILE)
 	@if [ -z "$(BACKUP_FILE)" ]; then echo "Please specify BACKUP_FILE=backup.tar.gz"; exit 1; fi
 	tar -xzf $(BACKUP_FILE)
+
+gitorganize-meld: ## Organize MELD data from external to interim folder
+	python scripts/organize_meld.py
+
+meld-to-wav: ## Convert MELD MP4 files to WAV format
+	python -c "from pitchperfect.data.meld_loader import prepare_meld_split; print('Converting train split...'); train_pairs = prepare_meld_split('data/interim/MELD', 'train', 'data/processed/meld_wav'); print(f'Train: {len(train_pairs)} files converted'); print('Converting dev split...'); dev_pairs = prepare_meld_split('data/interim/MELD', 'dev', 'data/processed/meld_wav'); print(f'Dev: {len(dev_pairs)} files converted'); print('Converting test split...'); test_pairs = prepare_meld_split('data/interim/MELD', 'test', 'data/processed/meld_wav'); print(f'Test: {len(test_pairs)} files converted'); print('✅ All MELD splits converted to WAV')"
