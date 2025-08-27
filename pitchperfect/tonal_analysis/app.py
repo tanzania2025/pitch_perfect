@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Web server for MELD Emotion Recognition
+Web server for MELD Emotion Recognition with Google Cloud Storage integration
 Upload audio files and get emotion predictions with feature analysis
 """
 
@@ -15,6 +15,7 @@ from werkzeug.exceptions import RequestEntityTooLarge
 from werkzeug.utils import secure_filename
 import tempfile
 from textblob import TextBlob
+from google.cloud import storage
 import warnings
 warnings.filterwarnings('ignore')
 
@@ -28,6 +29,9 @@ os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
 
 # Allowed file extensions
 ALLOWED_EXTENSIONS = {'wav', 'mp3', 'm4a', 'flac', 'ogg'}
+
+# Google Cloud Storage configuration
+GCS_BUCKET_NAME = "pp-pitchperfect-lewagon-raw-data"
 
 def allowed_file(filename):
     if not filename or '.' not in filename:
@@ -63,28 +67,47 @@ class SimpleEmotionNet(nn.Module):
     def forward(self, x):
         return self.network(x)
 
-# Global model variable
+# Global variables
 model = None
 emotions = ['anger', 'disgust', 'fear', 'joy', 'neutral', 'sadness', 'surprise']
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+storage_client = None
+bucket = None
+
+def initialize_gcs():
+    """Initialize Google Cloud Storage client"""
+    global storage_client, bucket
+    try:
+        storage_client = storage.Client()
+        bucket = storage_client.bucket(GCS_BUCKET_NAME)
+        print(f"Connected to GCS bucket: {GCS_BUCKET_NAME}")
+        return True
+    except Exception as e:
+        print(f"Error connecting to GCS: {e}")
+        return False
 
 def load_model():
     """Load the trained model"""
     global model
     try:
-        # Add safe globals for sklearn objects
-        import torch.serialization
-        torch.serialization.add_safe_globals([
-            'sklearn.preprocessing._label.LabelEncoder',
-            'sklearn.preprocessing.LabelEncoder'
-        ])
-
-        # Try loading with weights_only=False for backward compatibility
-        try:
+        # Try loading from local file first
+        if os.path.exists('robust_meld_model.pth'):
+            print("Loading model from local file...")
             checkpoint = torch.load('robust_meld_model.pth', map_location=device, weights_only=False)
-        except:
-            checkpoint = torch.load('robust_meld_model.pth', map_location=device)
+        else:
+            # Try loading from GCS
+            print("Loading model from Google Cloud Storage...")
+            if not initialize_gcs():
+                raise Exception("Could not connect to GCS")
 
+            model_blob = bucket.blob('models/robust_meld_model.pth')
+            if not model_blob.exists():
+                raise Exception("Model not found in GCS bucket")
+
+            # Download model to temporary file
+            with tempfile.NamedTemporaryFile() as temp_file:
+                model_blob.download_to_filename(temp_file.name)
+                checkpoint = torch.load(temp_file.name, map_location=device, weights_only=False)
 
         model = SimpleEmotionNet(input_size=50, num_classes=7)
         model.load_state_dict(checkpoint['model_state_dict'])
@@ -214,73 +237,19 @@ def extract_robust_features(audio_path, target_sr=16000, max_length=5.0):
         # If anything fails, return zero features
         return np.zeros(50, dtype=np.float32)
 
-def extract_text_features(text):
-    """Extract text features (placeholder - no text for audio-only)"""
-    features = []
-
-    # Basic text statistics (10 features)
-    words = text.split() if text else []
-    features.extend([
-        float(len(text)) if text else 0.0,
-        float(len(words)),
-        float(np.mean([len(w) for w in words])) if words else 0,
-        float(len(set(words)) / len(words)) if words else 0,
-        float(len([w for w in words if len(w) > 6])),
-        float(len([w for w in words if w.isupper()])),
-        float(len([w for w in words if w.islower()])),
-        float(text.count(' ') + 1) if text else 0,
-        float(sum(1 for c in text if c.isalpha())) if text else 0,
-        float(sum(1 for c in text if c.isdigit())) if text else 0
-    ])
-
-    # Punctuation features (10 features)
-    if text:
-        features.extend([
-            float(text.count('!')),
-            float(text.count('?')),
-            float(text.count('.')),
-            float(text.count(',')),
-            float(text.count(';')),
-            float(text.count(':')),
-            float(text.count('-')),
-            float(text.count('"')),
-            float(text.count("'")),
-            float(text.count('('))
-        ])
-    else:
-        features.extend([0.0] * 10)
-
-    # Sentiment features (10 features)
+def upload_to_gcs(file_path, gcs_path):
+    """Upload file to Google Cloud Storage"""
     try:
-        if text:
-            blob = TextBlob(text)
-            sentiment_polarity = blob.sentiment.polarity
-            sentiment_subjectivity = blob.sentiment.subjectivity
-        else:
-            sentiment_polarity = 0.0
-            sentiment_subjectivity = 0.0
-    except:
-        sentiment_polarity = 0.0
-        sentiment_subjectivity = 0.0
+        if not storage_client or not bucket:
+            return False
 
-    positive_words = ['good', 'great', 'happy', 'love', 'wonderful']
-    negative_words = ['bad', 'terrible', 'hate', 'awful', 'horrible']
-
-    text_lower = text.lower() if text else ""
-    features.extend([
-        float(sentiment_polarity),
-        float(sentiment_subjectivity),
-        float(sum(1 for word in positive_words if word in text_lower)),
-        float(sum(1 for word in negative_words if word in text_lower)),
-        0.0, 0.0, 0.0, 0.0, 0.0, 0.0  # Placeholder features
-    ])
-
-    # Ensure exactly 30 features
-    features = features[:30]
-    while len(features) < 30:
-        features.append(0.0)
-
-    return np.array(features, dtype=np.float32)
+        blob = bucket.blob(gcs_path)
+        blob.upload_from_filename(file_path)
+        print(f"Uploaded {file_path} to gs://{GCS_BUCKET_NAME}/{gcs_path}")
+        return True
+    except Exception as e:
+        print(f"Error uploading to GCS: {e}")
+        return False
 
 @app.route('/')
 def index():
@@ -301,11 +270,17 @@ def index():
             .confidence { font-size: 14px; color: #666; }
             .features { margin-top: 20px; }
             .feature-group { margin: 10px 0; }
+            .gcs-info { background-color: #e8f5e8; padding: 10px; border-radius: 5px; margin: 10px 0; }
         </style>
     </head>
     <body>
         <h1>MELD Emotion Recognition System</h1>
         <p>Upload an audio file to analyze its emotional content and voice features.</p>
+        <div class="gcs-info">
+            <strong>🔗 Connected to Google Cloud Storage</strong><br>
+            Bucket: pp-pitchperfect-lewagon-raw-data<br>
+            Models and data are loaded from the cloud.
+        </div>
 
         <form id="uploadForm" enctype="multipart/form-data">
             <div class="upload-area">
@@ -390,6 +365,15 @@ def index():
                     </div>
                 `;
 
+                if (data.gcs_upload) {
+                    html += `
+                        <div class="gcs-info" style="margin-top: 20px;">
+                            <strong>☁️ File saved to Google Cloud Storage:</strong><br>
+                            ${data.gcs_path}
+                        </div>
+                    `;
+                }
+
                 resultDiv.innerHTML = html;
             }
         </script>
@@ -450,15 +434,37 @@ def predict():
                 'tempo': float(features[49]) if len(features) > 49 else 0
             }
 
+        # Optional: Upload to GCS for future training data
+        gcs_upload_success = False
+        gcs_path = ""
+        if storage_client and bucket:
+            try:
+                # Create a unique filename for GCS
+                timestamp = pd.Timestamp.now().strftime('%Y%m%d_%H%M%S')
+                original_name = secure_filename(file.filename)
+                gcs_filename = f"uploaded_audio/{timestamp}_{original_name}"
+
+                if upload_to_gcs(temp_path, gcs_filename):
+                    gcs_upload_success = True
+                    gcs_path = f"gs://{GCS_BUCKET_NAME}/{gcs_filename}"
+            except Exception as e:
+                print(f"Error uploading to GCS: {e}")
+
         # Clean up temporary file
         os.remove(temp_path)
 
-        return jsonify({
+        response_data = {
             'predicted_emotion': predicted_emotion,
             'confidence': confidence,
             'emotion_probabilities': emotion_probs,
             'key_features': key_features
-        })
+        }
+
+        if gcs_upload_success:
+            response_data['gcs_upload'] = True
+            response_data['gcs_path'] = gcs_path
+
+        return jsonify(response_data)
 
     except Exception as e:
         # Clean up temporary file if it exists
@@ -467,27 +473,52 @@ def predict():
 
         return jsonify({'error': f'Error processing audio: {str(e)}'})
 
-    except UnicodeDecodeError as e:
-        # Clean up temporary file if it exists
-        if 'temp_path' in locals() and os.path.exists(temp_path):
-            os.remove(temp_path)
+@app.route('/health')
+def health_check():
+    """Health check endpoint"""
+    status = {
+        'model_loaded': model is not None,
+        'gcs_connected': storage_client is not None and bucket is not None,
+        'device': str(device)
+    }
+    return jsonify(status)
 
-        return jsonify({'error': f'Unicode error with filename: {str(e)}'})
+@app.route('/test-gcs')
+def test_gcs():
+    """Test GCS connection"""
+    try:
+        if not storage_client or not bucket:
+            return jsonify({'error': 'GCS not initialized'})
 
-    except OSError as e:
-        # Clean up temporary file if it exists
-        if 'temp_path' in locals() and os.path.exists(temp_path):
-            os.remove(temp_path)
+        # List some files in the bucket to test connection
+        blobs = list(bucket.list_blobs(prefix='datasets/meld/', max_results=5))
+        file_list = [blob.name for blob in blobs]
 
-        return jsonify({'error': f'File system error: {str(e)}'})
+        return jsonify({
+            'gcs_connected': True,
+            'bucket_name': GCS_BUCKET_NAME,
+            'sample_files': file_list
+        })
+    except Exception as e:
+        return jsonify({'error': f'GCS connection error: {str(e)}'})
 
 if __name__ == '__main__':
-    print("Loading MELD Emotion Recognition Web Server...")
+    print("Loading MELD Emotion Recognition Web Server with Google Cloud Storage...")
+
+    # Initialize GCS connection
+    if not initialize_gcs():
+        print("Warning: Could not connect to Google Cloud Storage")
+        print("The app will work but without GCS features")
 
     # Load the trained model
     if load_model():
-        print(f"Server starting on http://localhost:5000")
+        print(f"Server starting on http://localhost:5001")
         print("Upload audio files to get emotion predictions!")
+        print("\nEndpoints:")
+        print("  GET  / - Web interface")
+        print("  POST /predict - Audio prediction API")
+        print("  GET  /health - Health check")
+        print("  GET  /test-gcs - Test GCS connection")
         app.run(debug=True, host='0.0.0.0', port=5001)
     else:
-        print("Failed to load model. Please ensure 'enhanced_meld_model.pth' exists.")
+        print("Failed to load model. Please ensure the model exists locally or in GCS.")
