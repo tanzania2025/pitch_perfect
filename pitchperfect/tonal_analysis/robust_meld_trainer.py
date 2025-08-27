@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Robust MELD Trainer with simplified, error-resistant feature extraction
+Robust MELD Trainer with Google Cloud Storage integration
 """
 
 import pandas as pd
@@ -14,18 +14,26 @@ from sklearn.preprocessing import LabelEncoder
 from sklearn.metrics import accuracy_score, classification_report
 from sklearn.utils.class_weight import compute_class_weight
 import os
+import tempfile
 from tqdm import tqdm
 import warnings
+from google.cloud import storage
+from io import BytesIO
 warnings.filterwarnings('ignore')
 
-class RobustMELDDataset(Dataset):
-    """Robust dataset with simplified feature extraction"""
+class GCSMELDDataset(Dataset):
+    """MELD dataset that loads data from Google Cloud Storage"""
 
-    def __init__(self, csv_data, audio_base_path, target_sr=16000, max_length=5.0):
+    def __init__(self, csv_data, bucket_name, audio_folder_path, target_sr=16000, max_length=5.0):
         self.data = csv_data
-        self.audio_base_path = audio_base_path
+        self.bucket_name = bucket_name
+        self.audio_folder_path = audio_folder_path
         self.target_sr = target_sr
         self.max_length = max_length
+
+        # Initialize GCS client
+        self.storage_client = storage.Client()
+        self.bucket = self.storage_client.bucket(bucket_name)
 
     def __len__(self):
         return len(self.data)
@@ -37,16 +45,58 @@ class RobustMELDDataset(Dataset):
         dialogue_id = row['Dialogue_ID']
         utterance_id = row['Utterance_ID']
         audio_filename = f"dia{dialogue_id}_utt{utterance_id}.wav"
-        audio_path = os.path.join(self.audio_base_path, audio_filename)
+
+        # GCS path
+        gcs_audio_path = f"{self.audio_folder_path}/{audio_filename}"
 
         # Extract features
-        features = self._extract_robust_features(audio_path)
+        features = self._extract_robust_features_from_gcs(gcs_audio_path)
         emotion = row['Emotion']
 
         return torch.FloatTensor(features), emotion
 
+    def _download_audio_from_gcs(self, gcs_path):
+        """Download audio file from GCS to memory"""
+        try:
+            blob = self.bucket.blob(gcs_path)
+            if not blob.exists():
+                print(f"Audio file not found in GCS: {gcs_path}")
+                return None
+
+            # Download to memory
+            audio_bytes = blob.download_as_bytes()
+            return audio_bytes
+        except Exception as e:
+            print(f"Error downloading {gcs_path}: {e}")
+            return None
+
+    def _extract_robust_features_from_gcs(self, gcs_path):
+        """Extract features from audio file in GCS"""
+        try:
+            # Download audio bytes
+            audio_bytes = self._download_audio_from_gcs(gcs_path)
+            if audio_bytes is None:
+                return np.zeros(50, dtype=np.float32)
+
+            # Create temporary file
+            with tempfile.NamedTemporaryFile(suffix='.wav', delete=False) as tmp_file:
+                tmp_file.write(audio_bytes)
+                tmp_path = tmp_file.name
+
+            # Extract features using the same method as before
+            features = self._extract_robust_features(tmp_path)
+
+            # Clean up temp file
+            os.unlink(tmp_path)
+
+            return features
+
+        except Exception as e:
+            print(f"Error extracting features from {gcs_path}: {e}")
+            return np.zeros(50, dtype=np.float32)
+
     def _extract_robust_features(self, audio_path):
-        """Simplified, robust feature extraction"""
+        """Simplified, robust feature extraction (same as original)"""
         try:
             if not os.path.exists(audio_path):
                 return np.zeros(50, dtype=np.float32)
@@ -198,20 +248,46 @@ class SimpleEmotionNet(nn.Module):
         return self.network(x)
 
 class RobustMELDTrainer:
-    """Simplified, robust MELD trainer"""
+    """MELD trainer with Google Cloud Storage integration"""
 
-    def __init__(self):
+    def __init__(self, bucket_name="pp-pitchperfect-lewagon-raw-data"):
         self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
         self.label_encoder = LabelEncoder()
+        self.bucket_name = bucket_name
+
+        # Initialize GCS client
+        self.storage_client = storage.Client()
+        self.bucket = self.storage_client.bucket(bucket_name)
+
         print(f"Using device: {self.device}")
+        print(f"Using GCS bucket: {bucket_name}")
+
+    def download_csv_from_gcs(self, gcs_path):
+        """Download CSV file from GCS and return as DataFrame"""
+        try:
+            blob = self.bucket.blob(gcs_path)
+            if not blob.exists():
+                raise FileNotFoundError(f"CSV file not found in GCS: {gcs_path}")
+
+            csv_bytes = blob.download_as_bytes()
+            csv_string = csv_bytes.decode('utf-8')
+
+            # Create DataFrame from CSV string
+            from io import StringIO
+            df = pd.read_csv(StringIO(csv_string))
+            return df
+        except Exception as e:
+            print(f"Error downloading CSV {gcs_path}: {e}")
+            raise
 
     def load_data(self):
-        """Load and prepare data"""
-        print("Loading MELD dataset...")
+        """Load and prepare data from GCS"""
+        print("Loading MELD dataset from Google Cloud Storage...")
 
-        train_df = pd.read_csv('train_sent_emo.csv')
-        dev_df = pd.read_csv('dev_sent_emo.csv')
-        test_df = pd.read_csv('test_sent_emo.csv')
+        # Download CSV files from GCS
+        train_df = self.download_csv_from_gcs('datasets/meld/train_sent_emo.csv')
+        dev_df = self.download_csv_from_gcs('datasets/meld/dev_sent_emo.csv')
+        test_df = self.download_csv_from_gcs('datasets/meld/test_sent_emo.csv')
 
         print(f"Train: {len(train_df)}, Dev: {len(dev_df)}, Test: {len(test_df)}")
 
@@ -230,9 +306,17 @@ class RobustMELDTrainer:
         # Load data
         train_df, dev_df, test_df = self.load_data()
 
-        # Create datasets
-        train_dataset = RobustMELDDataset(train_df, './train')
-        dev_dataset = RobustMELDDataset(dev_df, './dev_splits_complete')
+        # Create datasets with GCS paths
+        train_dataset = GCSMELDDataset(
+            train_df,
+            self.bucket_name,
+            'datasets/meld/train'
+        )
+        dev_dataset = GCSMELDDataset(
+            dev_df,
+            self.bucket_name,
+            'datasets/meld/dev_splits_complete'
+        )
 
         # Create loaders
         train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, num_workers=0)
@@ -349,10 +433,13 @@ class RobustMELDTrainer:
 
 def main():
     """Main training function"""
-    print("Robust MELD Emotion Recognition Training")
-    print("=" * 50)
+    print("Robust MELD Emotion Recognition Training with Google Cloud Storage")
+    print("=" * 70)
 
-    trainer = RobustMELDTrainer()
+    # Make sure to set your Google Cloud credentials
+    # export GOOGLE_APPLICATION_CREDENTIALS="path/to/your/service-account-key.json"
+
+    trainer = RobustMELDTrainer(bucket_name="pp-pitchperfect-lewagon-raw-data")
     model = trainer.train(epochs=30, batch_size=32)
 
     print("\nTraining completed successfully!")
