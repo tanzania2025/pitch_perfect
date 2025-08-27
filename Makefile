@@ -120,7 +120,7 @@ check-env: ## Check if environment variables are set
 
 pipeline-test: ## Test the complete pipeline
 	python - <<-'PY'
-	from src.pipeline.orchestrator import MainPipeline
+	from pitchperfect.pipeline.orchestrator import MainPipeline
 	pipeline = MainPipeline()
 	print('✅ Pipeline initialization successful')
 	PY
