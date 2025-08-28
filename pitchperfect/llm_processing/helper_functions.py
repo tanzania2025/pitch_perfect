@@ -1,57 +1,75 @@
-def has_filler_words(self, text):
-    """Check for filler words"""
-    fillers = ['um', 'uh', 'er', 'ah', 'like', 'you know', 'I mean', 'basically', 'actually']
-    text_lower = text.lower()
-    return any(filler in text_lower for filler in fillers)
+# pitchperfect/llm_processing/helper_functions.py
+import re
+import numpy as np
+from typing import List, Dict, Any, Optional, Tuple
 
-def lacks_structure(self, text):
-    """Check if text lacks proper structure"""
-    sentences = text.split('.')
-    avg_length = sum(len(s.split()) for s in sentences) / len(sentences)
+class HelperFunctions:
+    """Helper functions for LLM processing"""
 
-    # Too many short sentences or one very long sentence
-    return avg_length < 5 or avg_length > 30
+    @staticmethod
+    def has_filler_words(text: str, filler_list: List[str] = None) -> bool:
+        """Check for filler words"""
+        if filler_list is None:
+            filler_list = ['um', 'uh', 'er', 'ah', 'like', 'you know', 'I mean']
 
-def post_process_text(self, text):
-    """Clean up improved text"""
-    # Remove any GPT artifacts
-    text = text.strip()
+        text_lower = text.lower()
+        return any(filler in text_lower for filler in filler_list)
 
-    # Ensure proper capitalization
-    sentences = text.split('. ')
-    sentences = [s[0].upper() + s[1:] if s else s for s in sentences]
-    text = '. '.join(sentences)
+    @staticmethod
+    def lacks_structure(text: str) -> bool:
+        """Check if text lacks proper structure"""
+        sentences = re.split(r'[.!?]+', text)
+        sentences = [s for s in sentences if s.strip()]
 
-    # Remove double spaces
-    text = ' '.join(text.split())
+        if not sentences:
+            return True
 
-    return text
+        avg_length = sum(len(s.split()) for s in sentences) / len(sentences)
+        return avg_length < 5 or avg_length > 30
 
-def calculate_volume_adjustment(self, acoustic_features):
-    """Calculate volume adjustments needed"""
-    energy = acoustic_features['energy']
+    @staticmethod
+    def post_process_text(text: str) -> str:
+        """Clean up improved text"""
+        # Remove any GPT artifacts
+        text = text.strip()
 
-    if energy < 0.02:
-        return {'adjustment': 'increase', 'factor': 1.5}
-    elif energy > 0.1:
-        return {'adjustment': 'decrease', 'factor': 0.8}
-    else:
-        return {'adjustment': 'maintain', 'factor': 1.0}
+        # Remove text in brackets that might be instructions
+        text = re.sub(r'\[.*?\]', '', text)
+        text = re.sub(r'\(.*?Note:.*?\)', '', text)
 
-def determine_target_emotion(self, sentiment, issues):
-    """Determine target emotional tone"""
-    if 'lacks_emotion' in issues['text_issues']:
-        # Suggest more engaging emotion
-        if sentiment['emotion'] == 'neutral':
-            return 'confident_friendly'
+        # Ensure proper capitalization
+        sentences = text.split('. ')
+        sentences = [s[0].upper() + s[1:] if s else s for s in sentences]
+        text = '. '.join(sentences)
 
-    # Enhance existing emotion
-    emotion_map = {
-        'happy': 'enthusiastic',
-        'sad': 'empathetic',
-        'angry': 'assertive',
-        'neutral': 'confident',
-        'fear': 'calm_reassuring'
-    }
+        # Remove double spaces
+        text = ' '.join(text.split())
 
-    return emotion_map.get(sentiment['emotion'], 'confident')
+        # Ensure ends with punctuation
+        if text and text[-1] not in '.!?':
+            text += '.'
+
+        return text
+
+    @staticmethod
+    def extract_numbers(text: str) -> List[str]:
+        """Extract numbers and percentages from text"""
+        pattern = r'\b\d+\.?\d*%?\b'
+        return re.findall(pattern, text)
+
+    @staticmethod
+    def identify_transition_words(text: str) -> List[Tuple[int, str]]:
+        """Identify transition words in text"""
+        transitions = [
+            'however', 'therefore', 'furthermore', 'additionally',
+            'moreover', 'nevertheless', 'consequently', 'meanwhile'
+        ]
+
+        words = text.split()
+        found = []
+
+        for i, word in enumerate(words):
+            if word.lower().strip('.,;:') in transitions:
+                found.append((i, word))
+
+        return found
