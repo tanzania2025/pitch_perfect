@@ -9,7 +9,11 @@ A comprehensive AI-powered system that combines speech-to-text, sentiment analys
 - **Speech-to-Text**: Advanced audio transcription using OpenAI Whisper
 - **Sentiment Analysis**: Multi-layered text sentiment analysis with NLTK, spaCy, and VADER
 - **Tonal Analysis**: Voice pitch, rhythm, and emotional tone analysis
-- **LLM Processing**: AI-powered text improvement and prompt generation
+- **LLM Processing**: AI-powered text improvement, prosody analysis, and speech enhancement
+  - Text improvement using OpenAI GPT models
+  - Prosody analysis and speaking rate optimization
+  - Emphasis word identification and pause point detection
+  - Volume and pitch adjustment recommendations
 - **Voice Cloning**: ElevenLabs integration for realistic voice synthesis
 - **End-to-End Pipeline**: Seamless workflow from audio input to improved audio output
 
@@ -85,6 +89,27 @@ pitch_perfect/
    python scripts/preprocess_meld.py
    ```
 
+## 🎯 Enhanced LLM Processing
+
+The system now includes comprehensive AI-powered text improvement and prosody analysis:
+
+### Text Improvement
+- **Issue Detection**: Automatically identifies filler words, poor structure, and emotional disengagement
+- **AI Enhancement**: Uses OpenAI GPT models to improve text clarity, structure, and engagement
+- **Smart Filtering**: Removes unnecessary phrases while maintaining original meaning
+
+### Prosody Analysis
+- **Speaking Rate Optimization**: Analyzes and recommends optimal speaking speeds
+- **Pitch Variation**: Detects monotone speech and suggests pitch adjustments
+- **Emphasis Identification**: Highlights key words, numbers, and power phrases
+- **Pause Point Detection**: Identifies natural break points for better speech flow
+- **Volume Control**: Recommends volume adjustments based on energy levels
+
+### Integration
+- **Seamless Workflow**: Integrates with the complete pipeline from transcription to synthesis
+- **Customizable**: Configurable parameters for different speaking styles and contexts
+- **Error Handling**: Graceful fallback to original text if improvement fails
+
 ## 📊 MELD Dataset Workflow
 
 The project includes a streamlined workflow for processing the MELD (Multimodal EmotionLines Dataset):
@@ -95,11 +120,30 @@ The project includes a streamlined workflow for processing the MELD (Multimodal 
 
 **Requirements**: ffmpeg must be installed and available in PATH for audio conversion.
 
+### Data Loading Functions
+
+```python
+from pitchperfect.data.meld_loader import process_meld_split
+
+# Lazy loading (memory efficient)
+for wav_path in process_meld_split(split='train', mode='lazy'):
+    process_audio(wav_path)
+
+# Batch loading (get all results at once)
+results = process_meld_split(split='dev', mode='batch')
+for mp4_path, wav_path in results:
+    print(f"{mp4_path.name} -> {wav_path.name}")
+```
+
+**Modes:**
+- `mode='lazy'` (default): Returns an iterator, processes files one at a time
+- `mode='batch'`: Returns a list of (mp4_path, wav_path) tuples
+
 ## 🔧 Configuration
 
 ### API Keys Required
 
-- **OpenAI API Key**: For Whisper transcription and GPT models
+- **OpenAI API Key**: For Whisper transcription, GPT models, and LLM text processing
 - **ElevenLabs API Key**: For voice cloning and synthesis
 - **Anthropic API Key**: For Claude models (optional)
 
@@ -165,6 +209,30 @@ cloner = VoiceCloner()
 audio = cloner.clone_voice("Text to speak", "target_voice_id")
 ```
 
+#### LLM Processing
+```python
+from pitchperfect.llm_processing.text_improver import ImprovementGenerator
+
+# Initialize with your API key
+improver = ImprovementGenerator(api_key="your-openai-api-key")
+
+# Generate improvements
+improved_text, prosody_guide = improver.generate_improvements(
+    text="Your text here",
+    text_sentiment={'emotion': 'neutral', 'score': 0.85},
+    acoustic_features={
+        'pitch_mean': 150,
+        'speaking_rate': 3.2,
+        'energy': 0.05,
+        'pause_ratio': 0.15,
+        'monotone_score': 0.7
+    }
+)
+
+print(f"Improved text: {improved_text}")
+print(f"Prosody guide: {prosody_guide}")
+```
+
 ## 🧪 Testing
 
 Run the test suite:
@@ -188,7 +256,7 @@ Explore the system capabilities through interactive notebooks:
 - `02_speech_to_text_analysis.ipynb` - Audio transcription experiments
 - `03_sentiment_analysis.ipynb` - Sentiment analysis examples
 - `04_tonal_analysis.ipynb` - Voice tone analysis
-- `05_llm_experiments.ipynb` - AI text improvement
+- `05_llm_experiments.ipynb` - AI text improvement and prosody analysis
 - `06_end_to_end_demo.ipynb` - Complete workflow demonstration
 
 ## 🐳 Docker

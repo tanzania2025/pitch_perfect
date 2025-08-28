@@ -51,7 +51,11 @@ pitch_perfect/
 │   ├── llm_processing/
 │   │   ├── __init__.py
 │   │   ├── prompt_generator.py
-│   │   ├── text_improver.py
+│   │   ├── text_improver.py          # AI text improvement & prosody analysis
+│   │   ├── identify_issues.py        # Issue detection for speech & text
+│   │   ├── prosody_guide.py          # Prosody calculation & guidance
+│   │   ├── helper_functions.py       # Utility functions for text processing
+│   │   ├── ssml_generate.py          # SSML markup generation
 │   │   └── templates.py
 │   │
 │   ├── text_to_speech/
