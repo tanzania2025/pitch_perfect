@@ -4,14 +4,14 @@ from pathlib import Path
 from typing import Iterable, Iterator, List, Literal, Tuple
 
 from pitchperfect.utils.audio_processing import extract_wav
+from pitchperfect.config.settings import MELD_INTERIM_DIR, MELD_WAV_DIR
 
 
 Split = Literal["train", "dev", "test"]
 
-# Default organized layout created by `make organize-meld`:
-# data/interim/MELD/{train,dev,test}
-DEFAULT_MELD_INTERIM_ROOT = Path("data/interim/MELD")
-DEFAULT_MELD_WAV_OUT = Path("data/processed/meld_wav")
+# Use config paths for consistent directory resolution
+DEFAULT_MELD_INTERIM_ROOT = MELD_INTERIM_DIR
+DEFAULT_MELD_WAV_OUT = MELD_WAV_DIR
 
 
 def find_meld_split(root: str | Path = DEFAULT_MELD_INTERIM_ROOT, split: Split = "train") -> List[Path]:
