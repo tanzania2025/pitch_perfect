@@ -89,10 +89,10 @@ def main():
         except Exception:
             print(f"{split_name}: No WAV files found")
 
-    # Example of using iter_wavs (lazy loading)
+    # Example of using process_meld_split with lazy mode
     print(f"\nLazy loading WAV files from dev split:")
     try:
-        wav_iterator = ml.iter_wavs(split='dev')
+        wav_iterator = ml.process_meld_split(split='dev', mode='lazy')
         count = 0
         for wav_path in wav_iterator:
             count += 1
@@ -102,7 +102,19 @@ def main():
                 print(f"  ... and {len(list(ml.find_meld_split(split='dev')))} more files")
                 break
     except Exception as e:
-        print(f"Error with iter_wavs: {e}")
+        print(f"Error with process_meld_split: {e}")
+
+    # Example of using process_meld_split with batch mode
+    print(f"\nBatch processing example:")
+    try:
+        # Get first 3 files in batch mode
+        batch_results = ml.process_meld_split(split='dev', mode='batch')
+        print(f"Total files in dev split: {len(batch_results)}")
+        print(f"First 3 MP4->WAV pairs:")
+        for i, (mp4_path, wav_path) in enumerate(batch_results[:3]):
+            print(f"  {i+1}: {mp4_path.name} -> {wav_path.name}")
+    except Exception as e:
+        print(f"Error with batch processing: {e}")
 
 if __name__ == "__main__":
     main()
