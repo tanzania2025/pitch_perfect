@@ -34,11 +34,25 @@ class SpeechImprovementApp:
         logger.info(f"Output directory: {self.output_dir}")
         logger.info(f"Temp directory: {self.temp_dir}")
 
-    def process_speech(self, audio_file, voice_sample, target_style, focus, save_audio):
-        """Process speech through pipeline"""
+    def process_speech(self, uploaded_audio, recorded_audio, voice_sample, target_style, focus, save_audio):
+        """Process speech through pipeline with support for both uploaded and recorded audio"""
+
+        # Determine which audio source to use
+        audio_file = None
+        audio_source = ""
+
+        if recorded_audio is not None:
+            audio_file = recorded_audio
+            audio_source = "recorded"
+            logger.info("Using recorded audio")
+        elif uploaded_audio is not None:
+            audio_file = uploaded_audio
+            audio_source = "uploaded"
+            logger.info("Using uploaded audio")
+
         if not audio_file:
             return (
-                "Please upload an audio file",
+                "Please either upload an audio file or record your voice using the microphone",
                 "",
                 "",
                 "",
@@ -49,7 +63,7 @@ class SpeechImprovementApp:
         try:
             # Generate unique filename for this session
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-            session_id = f"improved_{timestamp}"
+            session_id = f"improved_{audio_source}_{timestamp}"
 
             # Temporary output path
             temp_output_path = self.temp_dir / f"{session_id}.mp3"
@@ -61,7 +75,7 @@ class SpeechImprovementApp:
             }
 
             # Process through pipeline
-            logger.info(f"Processing audio: {audio_file}")
+            logger.info(f"Processing {audio_source} audio: {audio_file}")
             results = self.pipeline.process(
                 audio_path=audio_file,
                 voice_sample_path=voice_sample,
@@ -70,7 +84,7 @@ class SpeechImprovementApp:
             )
 
             # Format outputs
-            original = f"**Original Text:**\n\n{results['transcription']['text']}"
+            original = f"**Original Text ({audio_source}):**\n\n{results['transcription']['text']}"
             improved = f"**Improved Text:**\n\n{results['improvements']['improved_text']}"
 
             # Format feedback
@@ -92,6 +106,7 @@ class SpeechImprovementApp:
             issues = results['improvements']['issues']
 
             metrics_text = f"### Analysis Results\n\n"
+            metrics_text += f"**Audio Source:** {audio_source.capitalize()}\n"
             metrics_text += f"**Processing Time:** {metrics['processing_time_seconds']:.1f} seconds\n"
             metrics_text += f"**Word Count:** {metrics['original_word_count']} → {metrics['improved_word_count']}\n"
             metrics_text += f"**Issues Found:** {metrics['issues_found']}\n"
@@ -156,6 +171,10 @@ class SpeechImprovementApp:
             error_msg = f"❌ Error: {str(e)}"
             return error_msg, "", "", "", None, ""
 
+    def clear_inputs(self):
+        """Clear all input fields"""
+        return None, None, None
+
     def cleanup_temp_files(self):
         """Clean up temporary files older than 1 hour"""
         try:
@@ -176,7 +195,7 @@ class SpeechImprovementApp:
             return f"Cleanup failed: {e}"
 
 def create_interface():
-    """Create enhanced Gradio interface"""
+    """Create enhanced Gradio interface with voice recording"""
     app = SpeechImprovementApp()
 
     # Custom CSS for better styling
@@ -188,13 +207,28 @@ def create_interface():
     .audio-output {
         margin-top: 20px;
     }
+    .input-section {
+        border: 1px solid #e0e0e0;
+        border-radius: 8px;
+        padding: 15px;
+        margin: 10px 0;
+    }
+    .record-button {
+        margin: 10px 0;
+    }
+    .divider {
+        margin: 15px 0;
+        text-align: center;
+        color: #666;
+        font-weight: bold;
+    }
     """
 
     with gr.Blocks(title="Pitch Perfect - Speech Improvement", css=custom_css) as interface:
         gr.Markdown("""
         # 🎙️ Pitch Perfect - Speech Improvement System
 
-        Transform your speech with AI-powered analysis and improvements. Upload your recording to receive:
+        Transform your speech with AI-powered analysis and improvements. Record or upload your speech to receive:
         - 📝 Text transcription and improvements
         - 🎭 Emotion and sentiment analysis
         - 🎵 Tonal quality assessment
@@ -203,20 +237,49 @@ def create_interface():
 
         with gr.Row():
             with gr.Column(scale=1):
-                gr.Markdown("### Input Settings")
+                gr.Markdown("### 🎤 Audio Input Options")
 
-                audio_input = gr.Audio(
-                    label="📎 Upload Speech Recording",
-                    type="filepath",
-                    elem_classes="input-audio"
-                )
+                # Recording Section
+                with gr.Group(elem_classes="input-section"):
+                    gr.Markdown("#### Option 1: Record Your Voice")
+                    gr.Markdown("⚠️ **Browser Requirements:**")
+                    gr.Markdown("- Allow microphone permissions when prompted")
+                    gr.Markdown("- Use Chrome/Firefox/Safari for best compatibility")
+                    gr.Markdown("- Ensure you're on HTTPS or localhost")
 
+                    recorded_audio = gr.Audio(
+                        label="🔴 Click to Record (may take a moment to initialize)",
+                        sources=["microphone"],
+                        type="filepath",
+                        elem_classes="record-button",
+                        show_download_button=False,
+                        streaming=False
+                    )
+
+                gr.Markdown("**OR**", elem_classes="divider")
+
+                # Upload Section
+                with gr.Group(elem_classes="input-section"):
+                    gr.Markdown("#### Option 2: Upload Audio File")
+                    uploaded_audio = gr.Audio(
+                        label="📎 Upload Speech Recording (WAV/MP3)",
+                        sources=["upload"],
+                        type="filepath",
+                        elem_classes="input-audio"
+                    )
+
+                # Voice Sample Section
+                gr.Markdown("### 🎭 Voice Cloning (Optional)")
                 voice_sample = gr.Audio(
-                    label="🎤 Voice Sample for Cloning (optional)",
+                    label="🎤 Voice Sample for Cloning",
+                    sources=["upload"],
                     type="filepath",
                     elem_classes="voice-sample"
                 )
+                gr.Markdown("*Upload a sample of the target voice for speech synthesis*", elem_classes="help-text")
 
+                # Settings
+                gr.Markdown("### ⚙️ Processing Settings")
                 with gr.Row():
                     style = gr.Dropdown(
                         ["professional", "casual", "academic", "motivational"],
@@ -235,19 +298,34 @@ def create_interface():
                     info="Save the improved audio to outputs folder"
                 )
 
-                process_btn = gr.Button(
-                    "🚀 Analyze & Improve",
-                    variant="primary",
-                    size="lg"
-                )
+                # Action Buttons
+                with gr.Row():
+                    process_btn = gr.Button(
+                        "🚀 Analyze & Improve Speech",
+                        variant="primary",
+                        size="lg"
+                    )
+                    clear_btn = gr.Button(
+                        "🗑️ Clear All",
+                        variant="secondary",
+                        size="sm"
+                    )
 
                 gr.Markdown("""
-                ### Instructions:
-                1. Upload a speech recording (WAV/MP3)
-                2. Optionally add voice sample for cloning
-                3. Select target style and focus area
-                4. Click 'Analyze & Improve'
-                5. Listen to the improved version below
+                ### 📋 Quick Instructions:
+                1. **Record** your voice or **upload** an audio file
+                2. Optionally add a voice sample for cloning
+                3. Choose your target style and focus area
+                4. Click **'Analyze & Improve Speech'**
+                5. Listen to the improved version and review feedback
+
+                **Supported formats:** WAV, MP3, M4A, FLAC
+
+                ### 🔧 Microphone Troubleshooting:
+                - **Permission denied:** Click the 🔒 icon in browser address bar to allow microphone
+                - **No microphone found:** Check system audio settings and browser permissions
+                - **Still not working?** Use the upload option with a voice recording app
+                - **Mobile users:** Recording works best in mobile browsers like Chrome/Safari
                 """)
 
         with gr.Row():
@@ -292,23 +370,12 @@ def create_interface():
         # Hidden output for cleanup function
         cleanup_output = gr.Textbox(visible=False)
 
-        # Examples Section (commented out if examples don't exist)
-        # with gr.Row():
-        #     gr.Examples(
-        #         examples=[
-        #             ["examples/sample_speech.wav", None, "professional", "all", True],
-        #             ["examples/presentation.wav", None, "academic", "clarity", True],
-        #             ["examples/casual_talk.wav", None, "casual", "confidence", False],
-        #         ],
-        #         inputs=[audio_input, voice_sample, style, focus, save_audio],
-        #         label="Try these examples:"
-        #     )
-
-        # Process button click
+        # Event handlers
         process_btn.click(
             fn=app.process_speech,
             inputs=[
-                audio_input,
+                uploaded_audio,
+                recorded_audio,
                 voice_sample,
                 style,
                 focus,
@@ -324,7 +391,13 @@ def create_interface():
             ]
         )
 
-        # Clean up old temp files when interface loads (inside the Blocks context)
+        clear_btn.click(
+            fn=app.clear_inputs,
+            inputs=None,
+            outputs=[uploaded_audio, recorded_audio, voice_sample]
+        )
+
+        # Clean up old temp files when interface loads
         interface.load(
             fn=app.cleanup_temp_files,
             inputs=None,
@@ -334,15 +407,16 @@ def create_interface():
         # Footer
         gr.Markdown("""
         ---
-        ### Features:
+        ### 🚀 Features:
         - 🎯 **Speech-to-Text**: Accurate transcription using Whisper
         - 🎭 **Sentiment Analysis**: Emotion and mood detection
         - 🎵 **Tonal Analysis**: Pitch, pace, and energy assessment
         - ✨ **AI Improvements**: GPT-powered text enhancement
         - 🔊 **Voice Synthesis**: Text-to-speech with voice cloning
+        - 🎤 **Live Recording**: Record directly in the browser
         - 💾 **Export Options**: Save improved audio for later use
 
-        *Note: Processing may take 15-30 seconds depending on audio length.*
+        *Note: Processing may take 15-30 seconds depending on audio length. For best recording quality, use a quiet environment.*
         """)
 
     return interface

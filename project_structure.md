@@ -2,7 +2,6 @@ pitch_perfect/
 │
 ├── README.md
 ├── requirements.txt
-├── environment.yml
 ├── .env.example
 ├── .gitignore
 ├── setup.py
@@ -13,12 +12,6 @@ pitch_perfect/
 │   ├── settings.py
 │   └── model_configs.py
 │
-├── raw_data/
-│   ├── MELD/
-│   │   ├── train/
-│   │   ├── dev/
-│   │   └── test/
-│   └── README.md
 │
 ├── data/
 │   ├── __init__.py
