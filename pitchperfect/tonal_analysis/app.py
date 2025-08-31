@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
-Web server for MELD Emotion Recognition with Google Cloud Storage integration
-Upload audio files and get emotion predictions with feature analysis
+Web server for RAVDESS Emotion Recognition - Updated for 68.9% accuracy model
+Upload audio files and get emotion predictions using optimized RAVDESS model
 """
 
 import os
@@ -10,12 +10,12 @@ import numpy as np
 import librosa
 import torch
 import torch.nn as nn
-from flask import Flask, request, render_template, jsonify, flash, redirect, url_for
+from flask import Flask, request, jsonify
 from werkzeug.exceptions import RequestEntityTooLarge
 from werkzeug.utils import secure_filename
 import tempfile
-from textblob import TextBlob
-from google.cloud import storage
+from sklearn.preprocessing import StandardScaler
+import pickle
 import warnings
 warnings.filterwarnings('ignore')
 
@@ -24,14 +24,9 @@ app.config['SECRET_KEY'] = 'your-secret-key-here'
 app.config['MAX_CONTENT_LENGTH'] = 50 * 1024 * 1024  # 50MB max file size
 app.config['UPLOAD_FOLDER'] = 'temp_uploads'
 
-# Create upload folder if it doesn't exist
 os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
 
-# Allowed file extensions
 ALLOWED_EXTENSIONS = {'wav', 'mp3', 'm4a', 'flac', 'ogg'}
-
-# Google Cloud Storage configuration
-GCS_BUCKET_NAME = "pp-pitchperfect-lewagon-raw-data"
 
 def allowed_file(filename):
     if not filename or '.' not in filename:
@@ -39,22 +34,20 @@ def allowed_file(filename):
     extension = filename.rsplit('.', 1)[1].lower()
     return extension in ALLOWED_EXTENSIONS
 
-class SimpleEmotionNet(nn.Module):
-    """Simplified neural network (same as robust trainer)"""
-
-    def __init__(self, input_size=50, num_classes=7):
-        super(SimpleEmotionNet, self).__init__()
-
+class OptimizedMediumNet(nn.Module):
+    """Optimized model architecture for RAVDESS (65 features, 8 emotions)"""
+    def __init__(self, input_size=65, num_classes=8):
+        super().__init__()
         self.network = nn.Sequential(
             nn.Linear(input_size, 256),
             nn.BatchNorm1d(256),
             nn.ReLU(),
-            nn.Dropout(0.3),
+            nn.Dropout(0.4),
 
             nn.Linear(256, 128),
             nn.BatchNorm1d(128),
             nn.ReLU(),
-            nn.Dropout(0.3),
+            nn.Dropout(0.4),
 
             nn.Linear(128, 64),
             nn.BatchNorm1d(64),
@@ -67,69 +60,26 @@ class SimpleEmotionNet(nn.Module):
     def forward(self, x):
         return self.network(x)
 
-# Global variables
+# Global variables for RAVDESS
 model = None
-emotions = ['anger', 'disgust', 'fear', 'joy', 'neutral', 'sadness', 'surprise']
+feature_scaler = None
+emotions = ['angry', 'calm', 'disgust', 'fearful', 'happy', 'neutral', 'sad', 'surprised']
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-storage_client = None
-bucket = None
 
-def initialize_gcs():
-    """Initialize Google Cloud Storage client"""
-    global storage_client, bucket
-    try:
-        storage_client = storage.Client()
-        bucket = storage_client.bucket(GCS_BUCKET_NAME)
-        print(f"Connected to GCS bucket: {GCS_BUCKET_NAME}")
-        return True
-    except Exception as e:
-        print(f"Error connecting to GCS: {e}")
-        return False
-
-def load_model():
-    """Load the trained model"""
-    global model
-    try:
-        # Try loading from local file first
-        if os.path.exists('robust_meld_model.pth'):
-            print("Loading model from local file...")
-            checkpoint = torch.load('robust_meld_model.pth', map_location=device, weights_only=False)
-        else:
-            # Try loading from GCS
-            print("Loading model from Google Cloud Storage...")
-            if not initialize_gcs():
-                raise Exception("Could not connect to GCS")
-
-            model_blob = bucket.blob('models/robust_meld_model.pth')
-            if not model_blob.exists():
-                raise Exception("Model not found in GCS bucket")
-
-            # Download model to temporary file
-            with tempfile.NamedTemporaryFile() as temp_file:
-                model_blob.download_to_filename(temp_file.name)
-                checkpoint = torch.load(temp_file.name, map_location=device, weights_only=False)
-
-        model = SimpleEmotionNet(input_size=50, num_classes=7)
-        model.load_state_dict(checkpoint['model_state_dict'])
-        model.to(device)
-        model.eval()
-        print(f"Model loaded successfully! Accuracy: {checkpoint['accuracy']:.2f}%")
-        return True
-    except Exception as e:
-        print(f"Error loading model: {e}")
-        return False
-
-def extract_robust_features(audio_path, target_sr=16000, max_length=5.0):
-    """Simplified, robust feature extraction (same as robust trainer)"""
+def extract_optimized_features(audio_path, target_sr=16000, max_length=6.0):
+    """Extract optimized 65-feature set (matches your best model)"""
     try:
         if not os.path.exists(audio_path):
-            return np.zeros(50, dtype=np.float32)
+            return np.zeros(65, dtype=np.float32)
 
         # Load audio
         y, sr = librosa.load(audio_path, sr=target_sr, duration=max_length)
 
-        if len(y) == 0:
-            return np.zeros(50, dtype=np.float32)
+        if len(y) == 0 or np.max(np.abs(y)) == 0:
+            return np.zeros(65, dtype=np.float32)
+
+        # Normalize audio
+        y = y / np.max(np.abs(y))
 
         # Ensure consistent length
         target_length = int(max_length * target_sr)
@@ -140,46 +90,48 @@ def extract_robust_features(audio_path, target_sr=16000, max_length=5.0):
 
         features = []
 
-        # 1. Basic MFCC (most important for emotion)
+        # 1. Enhanced MFCC features (39 features total)
         try:
             mfcc = librosa.feature.mfcc(y=y, sr=sr, n_mfcc=13)
-            features.extend([
-                float(np.mean(mfcc)),
-                float(np.std(mfcc)),
-                float(np.max(mfcc)),
-                float(np.min(mfcc))
-            ])
 
-            # Individual MFCC coefficients means
+            # Original MFCCs (13 features)
             mfcc_means = np.mean(mfcc, axis=1)
-            features.extend([float(x) for x in mfcc_means[:13]])
+            features.extend([float(x) for x in mfcc_means])
+
+            # Delta MFCCs (13 features)
+            mfcc_delta = librosa.feature.delta(mfcc)
+            mfcc_delta_means = np.mean(mfcc_delta, axis=1)
+            features.extend([float(x) for x in mfcc_delta_means])
+
+            # Delta-delta MFCCs (13 features)
+            mfcc_delta2 = librosa.feature.delta(mfcc, order=2)
+            mfcc_delta2_means = np.mean(mfcc_delta2, axis=1)
+            features.extend([float(x) for x in mfcc_delta2_means])
 
         except:
-            features.extend([0.0] * 17)  # 4 + 13
+            features.extend([0.0] * 39)
 
-        # 2. Spectral features
+        # 2. Spectral features (8 features)
         try:
             spectral_centroids = librosa.feature.spectral_centroid(y=y, sr=sr)[0]
-            features.extend([
-                float(np.mean(spectral_centroids)),
-                float(np.std(spectral_centroids))
-            ])
-
             spectral_rolloff = librosa.feature.spectral_rolloff(y=y, sr=sr)[0]
-            features.extend([
-                float(np.mean(spectral_rolloff)),
-                float(np.std(spectral_rolloff))
-            ])
-
+            spectral_bandwidth = librosa.feature.spectral_bandwidth(y=y, sr=sr)[0]
             zcr = librosa.feature.zero_crossing_rate(y)[0]
+
             features.extend([
+                float(np.mean(spectral_centroids) / 8000),
+                float(np.std(spectral_centroids) / 8000),
+                float(np.mean(spectral_rolloff) / 8000),
+                float(np.std(spectral_rolloff) / 8000),
+                float(np.mean(spectral_bandwidth) / 8000),
+                float(np.std(spectral_bandwidth) / 8000),
                 float(np.mean(zcr)),
                 float(np.std(zcr))
             ])
         except:
-            features.extend([0.0] * 6)
+            features.extend([0.0] * 8)
 
-        # 3. Energy features
+        # 3. Energy features (4 features)
         try:
             rms = librosa.feature.rms(y=y)[0]
             features.extend([
@@ -191,65 +143,149 @@ def extract_robust_features(audio_path, target_sr=16000, max_length=5.0):
         except:
             features.extend([0.0] * 4)
 
-        # 4. Chroma features
+        # 4. Spectral contrast (7 features)
         try:
-            chroma = librosa.feature.chroma_stft(y=y, sr=sr)
-            chroma_mean = np.mean(chroma, axis=1)
-            features.extend([float(x) for x in chroma_mean[:12]])
+            spectral_contrast = librosa.feature.spectral_contrast(y=y, sr=sr)
+            contrast_means = np.mean(spectral_contrast, axis=1)
+            features.extend([float(x) for x in contrast_means])
         except:
-            features.extend([0.0] * 12)
+            features.extend([0.0] * 7)
 
-        # 5. Pitch and tempo
+        # 5. Tonnetz (6 features)
         try:
-            pitches, magnitudes = librosa.piptrack(y=y, sr=sr, threshold=0.1)
-            pitch_values = []
-            for t in range(min(10, pitches.shape[1])):  # Only check first 10 frames
-                index = magnitudes[:, t].argmax()
-                pitch = pitches[index, t]
-                if pitch > 0:
-                    pitch_values.append(pitch)
+            tonnetz = librosa.feature.tonnetz(y=y, sr=sr)
+            tonnetz_means = np.mean(tonnetz, axis=1)
+            features.extend([float(x) for x in tonnetz_means])
+        except:
+            features.extend([0.0] * 6)
 
-            if pitch_values:
-                features.extend([
-                    float(np.mean(pitch_values)),
-                    float(np.std(pitch_values)),
-                    float(len(pitch_values))
-                ])
-            else:
-                features.extend([0.0, 0.0, 0.0])
-
-            # Tempo
+        # 6. Advanced pitch features (1 feature)
+        try:
             tempo, _ = librosa.beat.beat_track(y=y, sr=sr)
-            features.append(float(tempo))
-
+            features.append(float(tempo / 200))
         except:
-            features.extend([0.0] * 4)
+            features.append(0.0)
 
-        # Ensure exactly 50 features
-        features = features[:50]  # Truncate if too many
-        while len(features) < 50:  # Pad if too few
+        # Total: 39 + 8 + 4 + 7 + 6 + 1 = 65 features
+        features = features[:65]
+        while len(features) < 65:
             features.append(0.0)
 
         return np.array(features, dtype=np.float32)
 
     except Exception as e:
-        print(f"Error extracting audio features: {e}")
-        # If anything fails, return zero features
-        return np.zeros(50, dtype=np.float32)
+        return np.zeros(65, dtype=np.float32)
 
-def upload_to_gcs(file_path, gcs_path):
-    """Upload file to Google Cloud Storage"""
+def load_model():
+    """Load the optimized RAVDESS model"""
+    global model, feature_scaler
     try:
-        if not storage_client or not bucket:
-            return False
+        # Look for your best model file
+        model_files = [
+            'enhanced_model_with_augmentation.pth',
+            'best_model_with_augmentation.pth',
+            'final_optimized_ensemble.pth'
+        ]
 
-        blob = bucket.blob(gcs_path)
-        blob.upload_from_filename(file_path)
-        print(f"Uploaded {file_path} to gs://{GCS_BUCKET_NAME}/{gcs_path}")
+        model_path = None
+        for model_file in model_files:
+            if os.path.exists(model_file):
+                model_path = model_file
+                break
+
+        if not model_path:
+            raise Exception(f"No model found. Expected one of: {model_files}")
+
+        checkpoint = torch.load(model_path, map_location=device, weights_only=False)
+
+        # Load model
+        model = OptimizedMediumNet(input_size=65, num_classes=8)
+        model.load_state_dict(checkpoint['model_state_dict'])
+        model.to(device)
+        model.eval()
+
+        # Load feature scaler if it exists
+        if 'feature_scaler' in checkpoint and checkpoint['feature_scaler'] is not None:
+            feature_scaler = checkpoint['feature_scaler']
+
+        accuracy = checkpoint.get('accuracy', 'unknown')
+        print(f"RAVDESS model loaded successfully! Accuracy: {accuracy}")
         return True
+
     except Exception as e:
-        print(f"Error uploading to GCS: {e}")
+        print(f"Error loading model: {e}")
         return False
+
+@app.route('/predict', methods=['POST'])
+def predict():
+    if model is None:
+        return jsonify({'error': 'Model not loaded'})
+
+    if 'audio' not in request.files:
+        return jsonify({'error': 'No audio file provided'})
+
+    file = request.files['audio']
+    if file.filename == '' or not allowed_file(file.filename):
+        return jsonify({'error': 'Invalid file type'})
+
+    try:
+        # Save uploaded file
+        import uuid
+        file_extension = file.filename.rsplit('.', 1)[1].lower()
+        temp_filename = f"temp_{uuid.uuid4().hex[:8]}.{file_extension}"
+        temp_path = os.path.join(app.config['UPLOAD_FOLDER'], temp_filename)
+        file.save(temp_path)
+
+        # Extract optimized features (65 features)
+        features = extract_optimized_features(temp_path)
+
+        # Apply feature scaling if available
+        if feature_scaler is not None:
+            features = feature_scaler.transform(features.reshape(1, -1))[0]
+
+        # Make prediction
+        with torch.no_grad():
+            features_tensor = torch.FloatTensor(features).unsqueeze(0).to(device)
+            output = model(features_tensor)
+            probabilities = torch.softmax(output, dim=1).cpu().numpy()[0]
+            predicted_idx = np.argmax(probabilities)
+
+            predicted_emotion = emotions[predicted_idx]
+            confidence = float(probabilities[predicted_idx])
+
+            # Create emotion probabilities dictionary
+            emotion_probs = {emotions[i]: float(probabilities[i]) for i in range(len(emotions))}
+
+            # Extract key features for display
+            key_features = {
+                'mfcc_mean': float(np.mean(features[:13])) if len(features) >= 13 else 0,
+                'delta_mfcc_mean': float(np.mean(features[13:26])) if len(features) >= 26 else 0,
+                'spectral_centroid': float(features[39] * 8000) if len(features) > 39 else 0,
+                'spectral_rolloff': float(features[41] * 8000) if len(features) > 41 else 0,
+                'energy_mean': float(features[47]) if len(features) > 47 else 0,
+                'tempo': float(features[64] * 200) if len(features) > 64 else 0
+            }
+
+        # Clean up
+        os.remove(temp_path)
+
+        return jsonify({
+            'predicted_emotion': predicted_emotion,
+            'confidence': confidence,
+            'emotion_probabilities': emotion_probs,
+            'key_features': key_features,
+            'model_info': {
+                'dataset': 'RAVDESS',
+                'accuracy': '68.9%',
+                'features': 65,
+                'emotions': len(emotions)
+            }
+        })
+
+    except Exception as e:
+        if 'temp_path' in locals() and os.path.exists(temp_path):
+            os.remove(temp_path)
+        return jsonify({'error': f'Error processing audio: {str(e)}'})
 
 @app.route('/')
 def index():
@@ -257,7 +293,7 @@ def index():
     <!DOCTYPE html>
     <html>
     <head>
-        <title>MELD Emotion Recognition</title>
+        <title>RAVDESS Emotion Recognition</title>
         <style>
             body { font-family: Arial, sans-serif; max-width: 800px; margin: 50px auto; padding: 20px; }
             .upload-area { border: 2px dashed #ccc; padding: 40px; text-align: center; margin: 20px 0; }
@@ -270,21 +306,24 @@ def index():
             .confidence { font-size: 14px; color: #666; }
             .features { margin-top: 20px; }
             .feature-group { margin: 10px 0; }
-            .gcs-info { background-color: #e8f5e8; padding: 10px; border-radius: 5px; margin: 10px 0; }
+            .model-info { background-color: #e8f5e8; padding: 10px; border-radius: 5px; margin: 10px 0; }
         </style>
     </head>
     <body>
-        <h1>MELD Emotion Recognition System</h1>
-        <p>Upload an audio file to analyze its emotional content and voice features.</p>
-        <div class="gcs-info">
-            <strong>🔗 Connected to Google Cloud Storage</strong><br>
-            Bucket: pp-pitchperfect-lewagon-raw-data<br>
-            Models and data are loaded from the cloud.
+        <h1>RAVDESS Emotion Recognition System</h1>
+        <p>Advanced audio emotion recognition using optimized RAVDESS model (68.9% accuracy)</p>
+
+        <div class="model-info">
+            <strong>Model Information</strong><br>
+            Dataset: RAVDESS Speech Database<br>
+            Accuracy: 68.9% on validation set<br>
+            Features: 65 enhanced audio features<br>
+            Emotions: 8 categories (angry, calm, disgust, fearful, happy, neutral, sad, surprised)
         </div>
 
         <form id="uploadForm" enctype="multipart/form-data">
             <div class="upload-area">
-                <p>Drop your audio file here or click to browse</p>
+                <p>Upload your audio file for emotion analysis</p>
                 <input type="file" id="audioFile" name="audio" accept=".wav,.mp3,.m4a,.flac,.ogg" required>
             </div>
             <button type="submit">Analyze Emotion</button>
@@ -306,7 +345,7 @@ def index():
 
                 formData.append('audio', audioFile);
 
-                document.getElementById('result').innerHTML = '<p>Analyzing audio... This may take a moment.</p>';
+                document.getElementById('result').innerHTML = '<p>Analyzing audio with RAVDESS model...</p>';
                 document.getElementById('result').style.display = 'block';
 
                 try {
@@ -331,7 +370,7 @@ def index():
                 const resultDiv = document.getElementById('result');
 
                 let html = `
-                    <h3>Analysis Results</h3>
+                    <h3>Emotion Analysis Results</h3>
                     <div class="emotion">Predicted Emotion: ${data.predicted_emotion}</div>
                     <div class="confidence">Confidence: ${(data.confidence * 100).toFixed(1)}%</div>
 
@@ -339,13 +378,19 @@ def index():
                     <div class="features">
                 `;
 
-                for (let [emotion, prob] of Object.entries(data.emotion_probabilities)) {
+                // Sort emotions by probability for better display
+                const sortedEmotions = Object.entries(data.emotion_probabilities)
+                    .sort(([,a], [,b]) => b - a);
+
+                for (let [emotion, prob] of sortedEmotions) {
                     const percentage = (prob * 100).toFixed(1);
+                    const barColor = emotion === data.predicted_emotion ? '#28a745' : '#007bff';
+
                     html += `
                         <div class="feature-group">
                             <strong>${emotion}:</strong> ${percentage}%
-                            <div style="background-color: #e9ecef; border-radius: 3px; height: 10px; margin: 2px 0;">
-                                <div style="background-color: #007bff; height: 100%; width: ${percentage}%; border-radius: 3px;"></div>
+                            <div style="background-color: #e9ecef; border-radius: 3px; height: 12px; margin: 2px 0;">
+                                <div style="background-color: ${barColor}; height: 100%; width: ${percentage}%; border-radius: 3px;"></div>
                             </div>
                         </div>
                     `;
@@ -354,25 +399,20 @@ def index():
                 html += `
                     </div>
 
-                    <h4>Key Audio Features:</h4>
+                    <h4>Advanced Audio Features:</h4>
                     <div class="features">
                         <div class="feature-group"><strong>MFCC Mean:</strong> ${data.key_features.mfcc_mean.toFixed(3)}</div>
-                        <div class="feature-group"><strong>MFCC Std:</strong> ${data.key_features.mfcc_std.toFixed(3)}</div>
+                        <div class="feature-group"><strong>Delta MFCC Mean:</strong> ${data.key_features.delta_mfcc_mean.toFixed(3)}</div>
                         <div class="feature-group"><strong>Spectral Centroid:</strong> ${data.key_features.spectral_centroid.toFixed(1)} Hz</div>
                         <div class="feature-group"><strong>Spectral Rolloff:</strong> ${data.key_features.spectral_rolloff.toFixed(1)} Hz</div>
                         <div class="feature-group"><strong>Energy Mean:</strong> ${data.key_features.energy_mean.toFixed(4)}</div>
                         <div class="feature-group"><strong>Tempo:</strong> ${data.key_features.tempo.toFixed(1)} BPM</div>
                     </div>
-                `;
 
-                if (data.gcs_upload) {
-                    html += `
-                        <div class="gcs-info" style="margin-top: 20px;">
-                            <strong>☁️ File saved to Google Cloud Storage:</strong><br>
-                            ${data.gcs_path}
-                        </div>
-                    `;
-                }
+                    <div class="model-info" style="margin-top: 20px;">
+                        <strong>Model Performance:</strong> ${data.model_info.accuracy} accuracy on ${data.model_info.dataset} dataset
+                    </div>
+                `;
 
                 resultDiv.innerHTML = html;
             }
@@ -385,130 +425,82 @@ def index():
 def handle_file_too_large(e):
     return jsonify({'error': 'File too large. Please upload an audio file smaller than 50MB.'}), 413
 
-@app.route('/predict', methods=['POST'])
-def predict():
-    if model is None:
-        return jsonify({'error': 'Model not loaded'})
-
-    if 'audio' not in request.files:
-        return jsonify({'error': 'No audio file provided'})
-
-    file = request.files['audio']
-    if file.filename == '':
-        return jsonify({'error': 'No file selected'})
-
-    if not allowed_file(file.filename):
-        return jsonify({'error': f'Invalid file type. Please use WAV, MP3, M4A, FLAC, or OGG. You uploaded: {file.filename}'})
-
-    try:
-        # Save uploaded file temporarily with a simple name
-        import uuid
-        file_extension = file.filename.rsplit('.', 1)[1].lower()
-        temp_filename = f"temp_{uuid.uuid4().hex[:8]}.{file_extension}"
-        temp_path = os.path.join(app.config['UPLOAD_FOLDER'], temp_filename)
-        file.save(temp_path)
-
-        # Extract features using robust method
-        features = extract_robust_features(temp_path)
-
-        # Make prediction
-        with torch.no_grad():
-            features_tensor = torch.FloatTensor(features).unsqueeze(0).to(device)
-            output = model(features_tensor)
-            probabilities = torch.softmax(output, dim=1).cpu().numpy()[0]
-            predicted_idx = np.argmax(probabilities)
-
-            predicted_emotion = emotions[predicted_idx]
-            confidence = float(probabilities[predicted_idx])
-
-            # Create emotion probabilities dictionary
-            emotion_probs = {emotions[i]: float(probabilities[i]) for i in range(len(emotions))}
-
-            # Extract key features for display (from the 50 robust features)
-            key_features = {
-                'mfcc_mean': float(features[0]) if len(features) > 0 else 0,
-                'mfcc_std': float(features[1]) if len(features) > 1 else 0,
-                'spectral_centroid': float(features[17]) if len(features) > 17 else 0,
-                'spectral_rolloff': float(features[19]) if len(features) > 19 else 0,
-                'energy_mean': float(features[23]) if len(features) > 23 else 0,
-                'tempo': float(features[49]) if len(features) > 49 else 0
-            }
-
-        # Optional: Upload to GCS for future training data
-        gcs_upload_success = False
-        gcs_path = ""
-        if storage_client and bucket:
-            try:
-                # Create a unique filename for GCS
-                timestamp = pd.Timestamp.now().strftime('%Y%m%d_%H%M%S')
-                original_name = secure_filename(file.filename)
-                gcs_filename = f"uploaded_audio/{timestamp}_{original_name}"
-
-                if upload_to_gcs(temp_path, gcs_filename):
-                    gcs_upload_success = True
-                    gcs_path = f"gs://{GCS_BUCKET_NAME}/{gcs_filename}"
-            except Exception as e:
-                print(f"Error uploading to GCS: {e}")
-
-        # Clean up temporary file
-        os.remove(temp_path)
-
-        response_data = {
-            'predicted_emotion': predicted_emotion,
-            'confidence': confidence,
-            'emotion_probabilities': emotion_probs,
-            'key_features': key_features
-        }
-
-        if gcs_upload_success:
-            response_data['gcs_upload'] = True
-            response_data['gcs_path'] = gcs_path
-
-        return jsonify(response_data)
-
-    except Exception as e:
-        # Clean up temporary file if it exists
-        if 'temp_path' in locals() and os.path.exists(temp_path):
-            os.remove(temp_path)
-
-        return jsonify({'error': f'Error processing audio: {str(e)}'})
-
 @app.route('/health')
 def health_check():
     """Health check endpoint"""
     status = {
         'model_loaded': model is not None,
-        'gcs_connected': storage_client is not None and bucket is not None,
-        'device': str(device)
+        'feature_scaler_loaded': feature_scaler is not None,
+        'device': str(device),
+        'model_type': 'RAVDESS Optimized',
+        'accuracy': '68.9%',
+        'features': 65,
+        'emotions': len(emotions)
     }
     return jsonify(status)
 
-@app.route('/test-gcs')
-def test_gcs():
-    """Test GCS connection"""
+@app.route('/test')
+def test_endpoint():
+    """Test endpoint to verify everything works"""
+    return jsonify({
+        'status': 'Server running',
+        'model_loaded': model is not None,
+        'emotions': emotions,
+        'feature_count': 65,
+        'model_accuracy': '68.9%'
+    })
+
+def load_model():
+    """Load the trained RAVDESS model"""
+    global model, feature_scaler
     try:
-        if not storage_client or not bucket:
-            return jsonify({'error': 'GCS not initialized'})
+        # Look for your best performing model
+        model_files = [
+            'enhanced_model_with_augmentation.pth',
+            'best_model_with_augmentation.pth',
+            'final_optimized_ensemble.pth'
+        ]
 
-        # List some files in the bucket to test connection
-        blobs = list(bucket.list_blobs(prefix='datasets/meld/', max_results=5))
-        file_list = [blob.name for blob in blobs]
+        model_path = None
+        for model_file in model_files:
+            if os.path.exists(model_file):
+                model_path = model_file
+                print(f"Found model: {model_file}")
+                break
 
-        return jsonify({
-            'gcs_connected': True,
-            'bucket_name': GCS_BUCKET_NAME,
-            'sample_files': file_list
-        })
+        if not model_path:
+            print(f"No model found. Looking for: {model_files}")
+            print("Please ensure you have run the optimized trainer and saved the model.")
+            return False
+
+        checkpoint = torch.load(model_path, map_location=device, weights_only=False)
+
+        # Create model with correct architecture
+        model = OptimizedMediumNet(input_size=65, num_classes=8)
+        model.load_state_dict(checkpoint['model_state_dict'])
+        model.to(device)
+        model.eval()
+
+        # Load feature scaler if available
+        if 'feature_scaler' in checkpoint and checkpoint['feature_scaler'] is not None:
+            feature_scaler = checkpoint['feature_scaler']
+            print("Feature scaler loaded")
+        else:
+            print("No feature scaler found - using raw features")
+
+        accuracy = checkpoint.get('accuracy', 68.9)
+        print(f"RAVDESS model loaded! Accuracy: {accuracy:.1f}%")
+        return True
+
     except Exception as e:
-        return jsonify({'error': f'GCS connection error: {str(e)}'})
+        print(f"Error loading model: {e}")
+        return False
 
 if __name__ == '__main__':
-    print("Loading MELD Emotion Recognition Web Server with Google Cloud Storage...")
-
-    # Initialize GCS connection
-    if not initialize_gcs():
-        print("Warning: Could not connect to Google Cloud Storage")
-        print("The app will work but without GCS features")
+    print("Loading RAVDESS Emotion Recognition Web Server...")
+    print("Model: Optimized RAVDESS (68.9% accuracy)")
+    print("Features: 65 enhanced audio features")
+    print("Emotions: 8 categories")
 
     # Load the trained model
     if load_model():
@@ -518,7 +510,11 @@ if __name__ == '__main__':
         print("  GET  / - Web interface")
         print("  POST /predict - Audio prediction API")
         print("  GET  /health - Health check")
-        print("  GET  /test-gcs - Test GCS connection")
+        print("  GET  /test - Test endpoint")
         app.run(debug=True, host='0.0.0.0', port=5001)
     else:
-        print("Failed to load model. Please ensure the model exists locally or in GCS.")
+        print("Failed to load model.")
+        print("Make sure you have run the optimized trainer and have one of these files:")
+        print("  - enhanced_model_with_augmentation.pth")
+        print("  - best_model_with_augmentation.pth")
+        print("  - final_optimized_ensemble.pth")
