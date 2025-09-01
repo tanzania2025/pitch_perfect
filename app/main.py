@@ -12,6 +12,10 @@ import os
 from datetime import datetime
 import shutil
 
+from dotenv import load_dotenv
+load_dotenv(".env")
+
+    
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
