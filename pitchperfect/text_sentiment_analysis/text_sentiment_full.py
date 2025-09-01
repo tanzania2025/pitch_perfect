@@ -12,12 +12,15 @@ Defaults point to Vertex AI-style path /home/jupyter/old_backup containing:
 """
 
 import os
+from onnx2pytorch import ConvertModel
+import pickle
 import re
 import argparse
 import numpy as np
 import pandas as pd
 import tensorflow as tf
-
+import tf2onnx, onnx, torch
+from onnx2pytorch import ConvertModel
 from tensorflow.keras.callbacks import EarlyStopping, ReduceLROnPlateau
 from tensorflow.keras.preprocessing.text import Tokenizer
 from tensorflow.keras.preprocessing.sequence import pad_sequences
@@ -225,11 +228,59 @@ def run(args):
     overall_accuracy = float(np.mean(y_test == y_pred_labels))
     print(f"\nOverall Accuracy: {overall_accuracy:.4f}")
 
-    # Optional: save model
-    if args.output_model:
-        model.save(args.output_model)
-        print(f"\nSaved model to: {args.output_model}")
+def save_model_components(model, tokenizer, history, report, args, output_dir="model_outputs"):
+    """
+    Save model and training components to disk:
+    - Keras model (.h5)
+    - Tokenizer (.pkl)
+    - Training history (.pkl)
+    - Classification report (.pkl)
+    - Training arguments (.pkl)
+    """
+    os.makedirs(output_dir, exist_ok=True)
 
+    # Save Keras model
+    model.save(os.path.join(output_dir, "emotion_model.h5"))
+
+    # Save tokenizer
+    with open(os.path.join(output_dir, "tokenizer.pkl"), "wb") as f:
+        pickle.dump(tokenizer, f)
+
+    # Save training history
+    with open(os.path.join(output_dir, "history.pkl"), "wb") as f:
+        pickle.dump(history.history, f)
+
+    # Save classification report
+    with open(os.path.join(output_dir, "report.pkl"), "wb") as f:
+        pickle.dump(report, f)
+
+    # Save training arguments
+    with open(os.path.join(output_dir, "args.pkl"), "wb") as f:
+        pickle.dump(vars(args), f)
+
+    print(f"\n✅ Model components saved in {output_dir}/")
+
+      # Save all model components (only if flag is set)
+    if args.save_pickle:
+        save_model_components(
+            model=model,
+            tokenizer=tokenizer,
+            history=history,
+            report=report,
+            args=args,
+            output_dir=args.pickle_dir
+        )
+
+    model.save("emotion_model.h5")
+    
+    spec = (tf.TensorSpec((None, args.max_len), tf.int32, name="input_ids"),)
+    onnx_model, _ = tf2onnx.convert.from_keras(model, input_signature=spec, opset=13)
+    onnx.save(onnx_model, "emotion_model.onnx")
+
+    pytorch_model = ConvertModel(onnx_model)
+    torch.save(pytorch_model.state_dict(), "emotion_model.pth")
+
+    print("\n✅ Models exported: emotion_model.h5 (Keras), emotion_model.onnx, emotion_model.pth (PyTorch)")
 
 def build_argparser():
     parser = argparse.ArgumentParser(description="Train BiLSTM on MELD for 7-emotion classification.")
@@ -240,7 +291,9 @@ def build_argparser():
     parser.add_argument("--batch_size", type=int, default=32, help="Batch size")
     parser.add_argument("--epochs", type=int, default=20, help="Number of training epochs")
     parser.add_argument("--seed", type=int, default=42, help="Random seed")
-    parser.add_argument("--output_model", type=str, default="", help="Path to save trained model (.keras/.h5)")
+    parser.add_argument("--save_pickle", action="store_true", help="Save model components as pickle files")
+    parser.add_argument("--pickle_dir", type=str, default="model_outputs", help="Directory to save pickle files")
+    
     return parser
 
 
