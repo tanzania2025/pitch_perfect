@@ -6,7 +6,6 @@ from pathlib import Path
 from typing import Dict, Optional, Tuple
 
 import librosa
-
 # pitchperfect/utils/audio_processing.py
 import numpy as np
 import soundfile as sf
