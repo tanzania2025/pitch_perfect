@@ -54,8 +54,8 @@ steps:
 
 # Default substitutions (can be overridden)
 substitutions:
-  _REGION: 'us-central1'
-  _REPOSITORY: 'pitch-perfect-repo'
+  _REGION: 'europe-west1'
+  _REPOSITORY: 'pitch-perfect-repo'  
   _SERVICE_NAME: 'pitch-perfect-backend'
   _OPENAI_SECRET: 'openai-api-key'
   _ELEVENLABS_SECRET: 'elevenlabs-api-key'
