@@ -1,0 +1,36 @@
+name: Deploy to Google Cloud (Service Account Key)
+
+on:
+  push:
+    branches: [master]
+
+env:
+  PROJECT_ID: pitchperfect-lewagon  # Set this directly or use secrets
+  REGION: europe-west1
+  REPOSITORY: pitch-perfect-repo
+  SERVICE_NAME: pitch-perfect-backend
+  OPENAI_SECRET_NAME: openai-api-key
+  ELEVENLABS_SECRET_NAME: elevenlabs-api-key
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Authenticate to Google Cloud
+      uses: google-github-actions/auth@v2
+      with:
+        credentials_json: ${{ secrets.GCP_SA_KEY }}
+
+    - name: Set up Cloud SDK
+      uses: google-github-actions/setup-gcloud@v2
+      with:
+        project_id: ${{ env.PROJECT_ID }}
+
+    - name: Build and deploy
+      run: |
+        chmod +x ./deploy/deploy.sh
+        ./deploy/deploy.sh
