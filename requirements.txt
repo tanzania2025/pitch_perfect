@@ -10,9 +10,8 @@ torchaudio>=2.0.0,<3.0.0
 transformers>=4.36.0,<5.0.0
 datasets>=2.12.0,<5.0.0
 
-# Speech Processing - Fixed package names
+# Speech Processing
 openai-whisper>=20231117
-whisper>=1.0.0
 librosa>=0.10.0,<1.0.0
 soundfile>=0.12.0,<1.0.0
 webrtcvad>=2.0.10,<3.0.0
@@ -25,8 +24,6 @@ vaderSentiment>=3.3.2,<4.0.0
 
 # LLM Integration
 openai>=1.0.0,<2.0.0
-anthropic>=0.3.0,<1.0.0
-langchain>=0.1.0,<1.0.0
 tiktoken>=0.4.0,<1.0.0
 pydantic>=2.0.0
 
@@ -39,23 +36,16 @@ pydub>=0.25.1,<1.0.0
 praat-parselmouth>=0.4.3,<1.0.0
 python_speech_features>=0.6,<1.0.0
 
-# Data Handling
-tqdm>=4.65.0,<5.0.0
-matplotlib>=3.7.0,<4.0.0
-seaborn>=0.12.0,<1.0.0
-plotly>=5.15.0,<6.0.0
-
 # Utilities
 python-dotenv>=1.0.0,<2.0.0
 pyyaml>=6.0,<7.0.0
 jsonschema>=4.17.0,<5.0.0
-click>=8.1.0,<9.0.0
 
-# API and Web
+# FastAPI Backend
 fastapi>=0.100.0,<1.0.0
-uvicorn>=0.22.0,<1.0.0
-httpx>=0.24.0,<1.0.0
-gradio>=4.0.0
+uvicorn[standard]>=0.22.0,<1.0.0
+python-multipart>=0.0.6,<1.0.0
+aiofiles>=23.0.0,<24.0.0
 
 # Testing
 pytest>=7.4.0,<8.0.0
@@ -68,20 +58,3 @@ black>=23.0.0,<25.0.0
 flake8>=6.0.0,<8.0.0
 isort>=5.12.0,<6.0.0
 pre-commit>=3.3.0,<4.0.0
-
-# Jupyter
-jupyter>=1.0.0,<2.0.0
-ipywidgets>=8.0.0,<9.0.0
-
-# Logging and Monitoring
-loguru>=0.7.0,<1.0.0
-wandb>=0.15.0,<1.0.0
-
-
-flask>=2.3.0,<3.0.0
-werkzeug>=2.3.0,<3.0.0
-flask-sqlalchemy>=3.0.0,<4.0.0
-flask-login>=0.6.0,<1.0.0
-flask-wtf>=1.1.0,<2.0.0
-wtforms>=3.0.0,<4.0.0
-bcrypt>=4.0.0,<5.0.0

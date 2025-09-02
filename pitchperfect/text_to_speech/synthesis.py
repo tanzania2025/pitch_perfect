@@ -17,7 +17,7 @@ class Synthesizer:
         self.client = ElevenLabsClient(config)
         self.cloner = VoiceCloner(config)
         self.audio_processor = AudioProcessor(config)
-        self.default_voice = self.config.get('text_to_speech', {}).get('default_voice', 'adam')
+        self.default_voice = self.config.get('text_to_speech', {}).get('default_voice', 'onwK4e9ZLuTAKqWW03F9')
 
     def synthesize(self, text: str = None, ssml: str = None,
                   voice_id: str = None, output_path: str = None) -> Dict:

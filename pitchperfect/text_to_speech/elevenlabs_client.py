@@ -17,7 +17,7 @@ class ElevenLabsClient:
             raise ValueError("ElevenLabs API key required")
 
         set_api_key(api_key)
-        self.default_voice = tts_config.get('default_voice', 'adam')
+        self.default_voice = tts_config.get('default_voice', 'onwK4e9ZLuTAKqWW03F9')
         logger.info("ElevenLabs client initialized")
 
     def generate(self, text: str, voice_id: str = None, model: str = None) -> bytes:
@@ -33,7 +33,19 @@ class ElevenLabsClient:
             )
             return audio
         except Exception as e:
-            logger.error(f"ElevenLabs generation failed: {e}")
+            logger.error(f"ElevenLabs generation failed with voice '{voice}': {e}")
+            # Try with a known fallback voice if the original fails
+            if voice != "onwK4e9ZLuTAKqWW03F9":  # Daniel voice ID
+                logger.warning(f"Retrying with fallback voice (Daniel)")
+                try:
+                    audio = generate(
+                        text=text,
+                        voice="onwK4e9ZLuTAKqWW03F9",
+                        model=model
+                    )
+                    return audio
+                except Exception as fallback_e:
+                    logger.error(f"Fallback voice also failed: {fallback_e}")
             raise
 
     def generate_with_settings(self, text: str, voice_id: str,

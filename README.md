@@ -145,7 +145,6 @@ for mp4_path, wav_path in results:
 
 - **OpenAI API Key**: For Whisper transcription, GPT models, and LLM text processing
 - **ElevenLabs API Key**: For voice cloning and synthesis
-- **Anthropic API Key**: For Claude models (optional)
 
 ### Environment Variables
 
@@ -153,7 +152,6 @@ Create a `.env` file with:
 ```env
 OPENAI_API_KEY=your_openai_key_here
 ELEVENLABS_API_KEY=your_elevenlabs_key_here
-ANTHROPIC_API_KEY=your_anthropic_key_here
 MODEL_CACHE_DIR=./models
 DATA_DIR=./data
 OUTPUT_DIR=./outputs

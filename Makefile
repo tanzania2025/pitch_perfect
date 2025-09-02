@@ -95,7 +95,7 @@ tonal-dev: ## Development environment for Tonal Analysis team
 
 llm-dev: ## Development environment for LLM team
 	@echo "Setting up LLM development environment..."
-	pip install openai anthropic langchain tiktoken
+	pip install openai langchain tiktoken
 
 tts-dev: ## Development environment for TTS team
 	@echo "Setting up TTS development environment..."
@@ -107,14 +107,10 @@ check-env: ## Check if environment variables are set
 	@python - <<-'PY'
 	import os
 	required_vars = ['OPENAI_API_KEY', 'ELEVENLABS_API_KEY']
-	optional_vars = ['ANTHROPIC_API_KEY']
 	missing_required = [var for var in required_vars if not os.getenv(var)]
-	missing_optional = [var for var in optional_vars if not os.getenv(var)]
 	if missing_required:
 	    print('❌ Missing required environment variables:', ', '.join(missing_required))
 	    raise SystemExit(1)
-	if missing_optional:
-	    print('⚠️  Missing optional environment variables:', ', '.join(missing_optional))
 	print('✅ Environment variables check passed')
 	PY
 
