@@ -1,11 +1,12 @@
 # pitchperfect/text_to_speech/synthesis.py
+import logging
 import re
-from typing import Optional, Dict
+from typing import Dict, Optional
+
+from pitchperfect.utils.audio_processing import AudioProcessor
+
 from .elevenlabs_client import ElevenLabsClient
 from .voice_cloning import VoiceCloner
-from pitchperfect.utils.audio_processing import AudioProcessor
-import logging
-
 
 logger = logging.getLogger(__name__)
 

@@ -1,13 +1,13 @@
 # pitchperfect/llm_processing/improvement_generator.py
-from typing import Dict, Tuple, List, Optional
-from dataclasses import dataclass
 import logging
+from dataclasses import dataclass
+from typing import Dict, List, Optional, Tuple
 
-from .issue_identifier import IssueIdentifier
 from .emphasis_identifier import EmphasisIdentifier
+from .issue_identifier import IssueIdentifier
 from .prosody_calculator import ProsodyCalculator
-from .text_improver import TextImprover
 from .ssml_generator import SSMLGenerator
+from .text_improver import TextImprover
 
 logger = logging.getLogger(__name__)
 

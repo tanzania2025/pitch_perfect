@@ -3,9 +3,8 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Iterable, Iterator, List, Literal, Tuple, Union
 
-from pitchperfect.utils.audio_processing import extract_wav
 from pitchperfect.config.settings import MELD_INTERIM_DIR, MELD_WAV_DIR
-
+from pitchperfect.utils.audio_processing import extract_wav
 
 Split = Literal["train", "dev", "test"]
 Mode = Literal["batch", "lazy"]

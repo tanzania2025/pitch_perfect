@@ -1,7 +1,8 @@
 # pitchperfect/speech_to_text/transcriber.py
-import whisper
-from typing import Dict, Optional
 import logging
+from typing import Dict, Optional
+
+import whisper
 
 logger = logging.getLogger(__name__)
 

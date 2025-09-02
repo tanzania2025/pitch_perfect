@@ -3,9 +3,10 @@
 Script to compare installed packages with requirements.txt
 """
 
-import pkg_resources
 import re
 from pathlib import Path
+
+import pkg_resources
 
 
 def check_package_differences():

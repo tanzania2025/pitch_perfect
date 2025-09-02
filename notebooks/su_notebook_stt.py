@@ -6,11 +6,12 @@ This script demonstrates how to use the PitchPerfect speech-to-text capabilities
 with the processed MELD dataset WAV files.
 """
 
-from pitchperfect.speech_to_text import AudioTranscriber
-from pitchperfect.data import meld_loader as ml
-from pitchperfect.config.settings import MELD_WAV_DIR
-from pathlib import Path
 import os
+from pathlib import Path
+
+from pitchperfect.config.settings import MELD_WAV_DIR
+from pitchperfect.data import meld_loader as ml
+from pitchperfect.speech_to_text import AudioTranscriber
 
 
 def main():

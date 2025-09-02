@@ -1,9 +1,10 @@
 # utils_data.py
 import os
-import pandas as pd
-from datasets import Dataset, DatasetDict
 from collections import Counter
+
+import pandas as pd
 import torch
+from datasets import Dataset, DatasetDict
 
 CLASSES = ["anger", "disgust", "fear", "joy", "neutral", "sadness", "surprise"]
 label2id = {c: i for i, c in enumerate(CLASSES)}

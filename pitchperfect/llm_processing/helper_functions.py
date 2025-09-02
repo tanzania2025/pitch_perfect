@@ -1,7 +1,8 @@
 # pitchperfect/llm_processing/helper_functions.py
 import re
+from typing import Any, Dict, List, Optional, Tuple
+
 import numpy as np
-from typing import List, Dict, Any, Optional, Tuple
 
 
 class HelperFunctions:

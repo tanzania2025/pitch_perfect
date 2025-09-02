@@ -1,7 +1,9 @@
 # pitchperfect/llm_processing/issue_identifier.py
-from typing import Dict, List, Optional
 from dataclasses import dataclass, field
+from typing import Dict, List, Optional
+
 from pitchperfect.utils.text_processing import TextProcessor
+
 from .helper_functions import HelperFunctions
 
 

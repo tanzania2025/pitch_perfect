@@ -1,14 +1,15 @@
 from __future__ import annotations
 
-
-# pitchperfect/utils/audio_processing.py
-import numpy as np
-import librosa
-import soundfile as sf
-from typing import Tuple, Dict, Optional
 import shutil
 import subprocess
 from pathlib import Path
+from typing import Dict, Optional, Tuple
+
+import librosa
+
+# pitchperfect/utils/audio_processing.py
+import numpy as np
+import soundfile as sf
 
 
 class AudioProcessor:

@@ -1,7 +1,8 @@
 # pitchperfect/tonal_analysis/feature_extraction.py
-import numpy as np
-import librosa
 from typing import Dict, Optional
+
+import librosa
+import numpy as np
 
 
 class ProsodyExtractor:

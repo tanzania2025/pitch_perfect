@@ -1,9 +1,11 @@
 # pitchperfect/text_sentiment_analysis/analyzer.py
-from typing import Dict, List, Optional
-from transformers import pipeline
-import torch
-from .preprocessing import TextPreprocessor
 import logging
+from typing import Dict, List, Optional
+
+import torch
+from transformers import pipeline
+
+from .preprocessing import TextPreprocessor
 
 logger = logging.getLogger(__name__)
 

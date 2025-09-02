@@ -1,8 +1,10 @@
 # pitchperfect/llm_processing/emphasis_identifier.py
 import re
-from typing import List, Tuple, Optional, Dict
 from dataclasses import dataclass
+from typing import Dict, List, Optional, Tuple
+
 from pitchperfect.utils.text_processing import TextProcessor
+
 from .helper_functions import HelperFunctions
 
 

@@ -1,6 +1,6 @@
 # pitchperfect/utils/text_processing.py
 import re
-from typing import List, Dict, Tuple, Optional
+from typing import Dict, List, Optional, Tuple
 
 
 class TextProcessor:

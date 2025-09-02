@@ -2,6 +2,7 @@
 import re
 from typing import Dict, List, Optional
 from xml.sax.saxutils import escape
+
 from .emphasis_identifier import EmphasisWord
 
 

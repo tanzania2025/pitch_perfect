@@ -1,7 +1,8 @@
 # pitchperfect/text_to_speech/elevenlabs_client.py
-from elevenlabs import generate, set_api_key, Voice
-from typing import Optional, Dict
 import logging
+from typing import Dict, Optional
+
+from elevenlabs import Voice, generate, set_api_key
 
 logger = logging.getLogger(__name__)
 

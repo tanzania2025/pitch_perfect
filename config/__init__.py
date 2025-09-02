@@ -1,8 +1,9 @@
 # config/__init__.py
 import os
-import yaml
 from pathlib import Path
-from typing import Dict, Any
+from typing import Any, Dict
+
+import yaml
 
 
 def load_config(config_path: str = None) -> Dict[str, Any]:

@@ -2,7 +2,8 @@
 """Script to check available ElevenLabs voices"""
 
 import os
-from elevenlabs import voices, set_api_key
+
+from elevenlabs import set_api_key, voices
 
 # Set API key from environment
 api_key = os.getenv("ELEVENLABS_API_KEY")

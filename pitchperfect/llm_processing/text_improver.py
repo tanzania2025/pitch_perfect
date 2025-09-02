@@ -1,8 +1,11 @@
 # pitchperfect/llm_processing/text_improver.py
 import re
 from typing import Dict, List, Optional
+
 from openai import OpenAI
+
 from pitchperfect.utils.text_processing import TextProcessor
+
 from .helper_functions import HelperFunctions
 from .issue_identifier import Issues
 

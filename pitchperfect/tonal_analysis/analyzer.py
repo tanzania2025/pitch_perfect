@@ -1,10 +1,13 @@
 # pitchperfect/tonal_analysis/analyzer.py
-import numpy as np
-import librosa
-from typing import Dict, List, Union, Optional
-from .feature_extraction import ProsodyExtractor
-from pitchperfect.utils.audio_processing import AudioProcessor
 import logging
+from typing import Dict, List, Optional, Union
+
+import librosa
+import numpy as np
+
+from pitchperfect.utils.audio_processing import AudioProcessor
+
+from .feature_extraction import ProsodyExtractor
 
 logger = logging.getLogger(__name__)
 
