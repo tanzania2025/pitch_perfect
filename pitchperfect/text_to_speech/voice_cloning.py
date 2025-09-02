@@ -1,9 +1,11 @@
 # pitchperfect/text_to_speech/voice_cloning.py
-from elevenlabs import clone
-from typing import Optional, Dict
 import logging
+from typing import Dict, Optional
+
+from elevenlabs import clone
 
 logger = logging.getLogger(__name__)
+
 
 class VoiceCloner:
     """Voice cloning functionality"""
@@ -22,7 +24,7 @@ class VoiceCloner:
             voice = clone(
                 name=name,
                 files=[audio_path],
-                description="Cloned voice for speech improvement"
+                description="Cloned voice for speech improvement",
             )
 
             voice_id = voice.voice_id

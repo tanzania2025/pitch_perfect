@@ -1,7 +1,8 @@
 # tests/test_pipeline.py
-import pytest
-from pathlib import Path
 import sys
+from pathlib import Path
+
+import pytest
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
@@ -10,6 +11,7 @@ from pitchperfect.pipeline.orchestrator import PipelineOrchestrator
 from pitchperfect.text_sentiment_analysis.analyzer import TextSentimentAnalyzer
 from pitchperfect.tonal_analysis.analyzer import TonalAnalyzer
 
+
 def test_sentiment_analyzer():
     """Test sentiment analyzer"""
     config = load_config()
@@ -17,10 +19,11 @@ def test_sentiment_analyzer():
 
     result = analyzer.analyze("I am very happy today!")
 
-    assert 'emotion' in result
-    assert 'confidence' in result
-    assert 'valence' in result
-    assert result['sentiment'] in ['positive', 'negative', 'neutral']
+    assert "emotion" in result
+    assert "confidence" in result
+    assert "valence" in result
+    assert result["sentiment"] in ["positive", "negative", "neutral"]
+
 
 def test_tonal_analyzer():
     """Test tonal analyzer with dummy audio"""
@@ -36,9 +39,10 @@ def test_tonal_analyzer():
 
     result = analyzer.analyze(audio)
 
-    assert 'prosodic_features' in result
-    assert 'voice_quality' in result
-    assert 'acoustic_problems' in result
+    assert "prosodic_features" in result
+    assert "voice_quality" in result
+    assert "acoustic_problems" in result
+
 
 def test_pipeline_integration():
     """Test basic pipeline integration"""
@@ -50,6 +54,7 @@ def test_pipeline_integration():
     assert pipeline.tonal_analyzer is not None
     assert pipeline.improvement_generator is not None
     assert pipeline.synthesizer is not None
+
 
 if __name__ == "__main__":
     test_sentiment_analyzer()

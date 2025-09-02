@@ -6,11 +6,13 @@ This script demonstrates how to use the PitchPerfect speech-to-text capabilities
 with the processed MELD dataset WAV files.
 """
 
-from pitchperfect.speech_to_text import AudioTranscriber
-from pitchperfect.data import meld_loader as ml
-from pitchperfect.config.settings import MELD_WAV_DIR
-from pathlib import Path
 import os
+from pathlib import Path
+
+from pitchperfect.config.settings import MELD_WAV_DIR
+from pitchperfect.data import meld_loader as ml
+from pitchperfect.speech_to_text import AudioTranscriber
+
 
 def main():
     # Setup paths - use config paths for consistent directory resolution
@@ -22,7 +24,7 @@ def main():
 
     # List available WAV files
     base = Path(DEFAULT_MELD_WAV_OUT)
-    split = 'dev'  # Can be 'train', 'dev', or 'test'
+    split = "dev"  # Can be 'train', 'dev', or 'test'
     split_dir = base / split
     print(f"Looking for WAV files in: {split_dir}")
     print(f"Split directory absolute path: {split_dir.absolute()}")
@@ -31,7 +33,9 @@ def main():
         print(f"❌ Split directory not found: {split_dir}")
         print(f"❌ Absolute path: {split_dir.absolute()}")
         print(f"❌ Parent directory exists: {split_dir.parent.exists()}")
-        print(f"❌ Available in parent: {list(split_dir.parent.iterdir()) if split_dir.parent.exists() else 'N/A'}")
+        print(
+            f"❌ Available in parent: {list(split_dir.parent.iterdir()) if split_dir.parent.exists() else 'N/A'}"
+        )
         raise FileNotFoundError(f"Split directory not found: {split_dir}")
 
     wav_files = sorted(split_dir.rglob("*.wav"))
@@ -66,7 +70,7 @@ def main():
             pairs = t.transcribe_batch(test_files)
             for path, r in pairs:
                 filename = Path(path).name
-                if 'error' in r:
+                if "error" in r:
                     print(f"❌ {filename}: {r['error']}")
                 else:
                     print(f"✅ {filename}: {r['text'][:100]}...")
@@ -76,12 +80,12 @@ def main():
         print("No WAV files found for batch processing")
 
     # Using meld_loader utilities
-    print("\n" + "="*50)
+    print("\n" + "=" * 50)
     print("Using meld_loader utilities:")
-    print("="*50)
+    print("=" * 50)
 
     # List available splits
-    available_splits = ['train', 'dev', 'test']
+    available_splits = ["train", "dev", "test"]
     for split_name in available_splits:
         try:
             wav_count = len(list((DEFAULT_MELD_WAV_OUT / split_name).rglob("*.wav")))
@@ -92,14 +96,16 @@ def main():
     # Example of using process_meld_split with lazy mode
     print(f"\nLazy loading WAV files from dev split:")
     try:
-        wav_iterator = ml.process_meld_split(split='dev', mode='lazy')
+        wav_iterator = ml.process_meld_split(split="dev", mode="lazy")
         count = 0
         for wav_path in wav_iterator:
             count += 1
             if count <= 3:  # Show first 3
                 print(f"  {count}: {wav_path.name}")
             elif count == 4:
-                print(f"  ... and {len(list(ml.find_meld_split(split='dev')))} more files")
+                print(
+                    f"  ... and {len(list(ml.find_meld_split(split='dev')))} more files"
+                )
                 break
     except Exception as e:
         print(f"Error with process_meld_split: {e}")
@@ -108,13 +114,14 @@ def main():
     print(f"\nBatch processing example:")
     try:
         # Get first 3 files in batch mode
-        batch_results = ml.process_meld_split(split='dev', mode='batch')
+        batch_results = ml.process_meld_split(split="dev", mode="batch")
         print(f"Total files in dev split: {len(batch_results)}")
         print(f"First 3 MP4->WAV pairs:")
         for i, (mp4_path, wav_path) in enumerate(batch_results[:3]):
             print(f"  {i+1}: {mp4_path.name} -> {wav_path.name}")
     except Exception as e:
         print(f"Error with batch processing: {e}")
+
 
 if __name__ == "__main__":
     main()

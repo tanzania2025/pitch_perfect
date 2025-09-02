@@ -29,5 +29,11 @@ PRETRAINED_DIR = MODELS_DIR / "pretrained"
 CUSTOM_MODELS_DIR = MODELS_DIR / "custom"
 
 # Ensure directories exist
-for directory in [DATA_DIR, INTERIM_DATA_DIR, PROCESSED_DATA_DIR, OUTPUT_DIR, MODELS_DIR]:
+for directory in [
+    DATA_DIR,
+    INTERIM_DATA_DIR,
+    PROCESSED_DATA_DIR,
+    OUTPUT_DIR,
+    MODELS_DIR,
+]:
     directory.mkdir(parents=True, exist_ok=True)

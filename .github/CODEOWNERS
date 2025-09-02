@@ -1,0 +1,8 @@
+# You must approve ALL changes to master
+* @tanzania2025
+
+# Optional: If you want to be extra specific about critical files
+/requirements.txt @tanzania2025
+/setup.py @tanzania2025
+/Dockerfile @tanzania2025
+/.github/ @tanzania2025

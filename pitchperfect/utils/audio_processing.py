@@ -1,14 +1,15 @@
 from __future__ import annotations
 
-
-# pitchperfect/utils/audio_processing.py
-import numpy as np
-import librosa
-import soundfile as sf
-from typing import Tuple, Dict, Optional
 import shutil
 import subprocess
 from pathlib import Path
+from typing import Dict, Optional, Tuple
+
+import librosa
+
+# pitchperfect/utils/audio_processing.py
+import numpy as np
+import soundfile as sf
 
 
 class AudioProcessor:
@@ -16,7 +17,7 @@ class AudioProcessor:
 
     def __init__(self, config: Optional[Dict] = None):
         self.config = config or {}
-        self.sample_rate = self.config.get('sample_rate', 16000)
+        self.sample_rate = self.config.get("sample_rate", 16000)
 
     def load_audio(self, audio_path: str) -> Tuple[np.ndarray, int]:
         """Load audio file and return audio array and sample rate"""
@@ -32,9 +33,11 @@ class AudioProcessor:
     def extract_features(self, audio: np.ndarray, sr: int) -> Dict:
         """Extract basic audio features"""
         features = {
-            'duration': len(audio) / sr,
-            'rms_energy': float(np.sqrt(np.mean(audio**2))),
-            'zero_crossing_rate': float(np.mean(librosa.feature.zero_crossing_rate(audio)[0])),
+            "duration": len(audio) / sr,
+            "rms_energy": float(np.sqrt(np.mean(audio**2))),
+            "zero_crossing_rate": float(
+                np.mean(librosa.feature.zero_crossing_rate(audio)[0])
+            ),
         }
 
         # Extract pitch
@@ -47,20 +50,24 @@ class AudioProcessor:
                 pitch_values.append(pitch)
 
         if pitch_values:
-            features['pitch_mean'] = float(np.mean(pitch_values))
-            features['pitch_std'] = float(np.std(pitch_values))
+            features["pitch_mean"] = float(np.mean(pitch_values))
+            features["pitch_std"] = float(np.std(pitch_values))
         else:
-            features['pitch_mean'] = 0
-            features['pitch_std'] = 0
+            features["pitch_mean"] = 0
+            features["pitch_std"] = 0
 
         return features
 
-    def detect_pauses(self, audio: np.ndarray, sr: int, min_silence_ms: int = 100) -> Dict:
+    def detect_pauses(
+        self, audio: np.ndarray, sr: int, min_silence_ms: int = 100
+    ) -> Dict:
         """Detect pauses in audio"""
         frame_length = int(sr * min_silence_ms / 1000)
         hop_length = frame_length // 2
 
-        energy = librosa.feature.rms(y=audio, frame_length=frame_length, hop_length=hop_length)[0]
+        energy = librosa.feature.rms(
+            y=audio, frame_length=frame_length, hop_length=hop_length
+        )[0]
         threshold = np.mean(energy) * 0.1
 
         is_silence = energy < threshold
@@ -70,8 +77,8 @@ class AudioProcessor:
         pause_ratio = pause_frames / total_frames if total_frames > 0 else 0
 
         return {
-            'pause_ratio': float(pause_ratio),
-            'pause_count': int(np.sum(np.diff(is_silence.astype(int)) > 0))
+            "pause_ratio": float(pause_ratio),
+            "pause_count": int(np.sum(np.diff(is_silence.astype(int)) > 0)),
         }
 
     def normalize_audio_level(self, db_value: float, target_db: float = -15) -> float:

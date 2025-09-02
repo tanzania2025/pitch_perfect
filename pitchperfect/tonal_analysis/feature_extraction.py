@@ -1,7 +1,9 @@
 # pitchperfect/tonal_analysis/feature_extraction.py
-import numpy as np
-import librosa
 from typing import Dict, Optional
+
+import librosa
+import numpy as np
+
 
 class ProsodyExtractor:
     """Extract prosodic features from audio"""
@@ -27,8 +29,9 @@ class ProsodyExtractor:
 
         # Onset detection for syllable estimation
         onset_env = librosa.onset.onset_strength(y=audio, sr=sr)
-        peaks = librosa.util.peak_pick(onset_env, pre_max=3, post_max=3,
-                                       pre_avg=3, post_avg=5, delta=0.5, wait=10)
+        peaks = librosa.util.peak_pick(
+            onset_env, pre_max=3, post_max=3, pre_avg=3, post_avg=5, delta=0.5, wait=10
+        )
 
         # Calculate speaking rate
         duration = len(audio) / sr
@@ -40,25 +43,27 @@ class ProsodyExtractor:
         pause_info = self._detect_pauses(audio, sr)
 
         return {
-            'pitch': {
-                'mean_hz': float(np.mean(f0_valid)) if len(f0_valid) > 0 else 0,
-                'std_hz': float(np.std(f0_valid)) if len(f0_valid) > 0 else 0,
-                'median_hz': float(np.median(f0_valid)) if len(f0_valid) > 0 else 0,
-                'range_hz': float(np.ptp(f0_valid)) if len(f0_valid) > 0 else 0,
-                'voiced_ratio': len(f0_valid) / len(f0) if len(f0) > 0 else 0
+            "pitch": {
+                "mean_hz": float(np.mean(f0_valid)) if len(f0_valid) > 0 else 0,
+                "std_hz": float(np.std(f0_valid)) if len(f0_valid) > 0 else 0,
+                "median_hz": float(np.median(f0_valid)) if len(f0_valid) > 0 else 0,
+                "range_hz": float(np.ptp(f0_valid)) if len(f0_valid) > 0 else 0,
+                "voiced_ratio": len(f0_valid) / len(f0) if len(f0) > 0 else 0,
             },
-            'energy': {
-                'mean_db': float(20 * np.log10(np.mean(rms) + 1e-10)),
-                'std_db': float(20 * np.log10(np.std(rms) + 1e-10)),
-                'rms': float(np.mean(rms)),
-                'dynamic_range_db': float(20 * np.log10(np.max(rms) / (np.min(rms) + 1e-10)))
+            "energy": {
+                "mean_db": float(20 * np.log10(np.mean(rms) + 1e-10)),
+                "std_db": float(20 * np.log10(np.std(rms) + 1e-10)),
+                "rms": float(np.mean(rms)),
+                "dynamic_range_db": float(
+                    20 * np.log10(np.max(rms) / (np.min(rms) + 1e-10))
+                ),
             },
-            'tempo': {
-                'speaking_rate_wpm': float(words_per_minute),
-                'syllables_per_second': float(syllables_per_second),
-                'tempo_bpm': float(tempo)
+            "tempo": {
+                "speaking_rate_wpm": float(words_per_minute),
+                "syllables_per_second": float(syllables_per_second),
+                "tempo_bpm": float(tempo[0] if hasattr(tempo, '__len__') and len(tempo) > 0 else tempo),
             },
-            'pauses': pause_info
+            "pauses": pause_info,
         }
 
     def _detect_pauses(self, audio: np.ndarray, sr: int) -> Dict:
@@ -66,7 +71,9 @@ class ProsodyExtractor:
         frame_length = int(sr * 0.1)  # 100ms frames
         hop_length = frame_length // 2
 
-        energy = librosa.feature.rms(y=audio, frame_length=frame_length, hop_length=hop_length)[0]
+        energy = librosa.feature.rms(
+            y=audio, frame_length=frame_length, hop_length=hop_length
+        )[0]
         threshold = np.mean(energy) * 0.1
 
         is_silence = energy < threshold
@@ -79,7 +86,11 @@ class ProsodyExtractor:
         pause_count = len(pause_starts)
 
         return {
-            'pause_ratio': float(pause_frames / total_frames) if total_frames > 0 else 0,
-            'pause_count': pause_count,
-            'average_pause_duration': float(pause_frames * hop_length / sr / max(1, pause_count))
+            "pause_ratio": (
+                float(pause_frames / total_frames) if total_frames > 0 else 0
+            ),
+            "pause_count": pause_count,
+            "average_pause_duration": float(
+                pause_frames * hop_length / sr / max(1, pause_count)
+            ),
         }

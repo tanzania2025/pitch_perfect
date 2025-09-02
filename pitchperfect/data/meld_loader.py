@@ -3,9 +3,8 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Iterable, Iterator, List, Literal, Tuple, Union
 
-from pitchperfect.utils.audio_processing import extract_wav
 from pitchperfect.config.settings import MELD_INTERIM_DIR, MELD_WAV_DIR
-
+from pitchperfect.utils.audio_processing import extract_wav
 
 Split = Literal["train", "dev", "test"]
 Mode = Literal["batch", "lazy"]
@@ -15,7 +14,9 @@ DEFAULT_MELD_INTERIM_ROOT = MELD_INTERIM_DIR
 DEFAULT_MELD_WAV_OUT = MELD_WAV_DIR
 
 
-def find_meld_split(root: str | Path = DEFAULT_MELD_INTERIM_ROOT, split: Split = "train") -> List[Path]:
+def find_meld_split(
+    root: str | Path = DEFAULT_MELD_INTERIM_ROOT, split: Split = "train"
+) -> List[Path]:
     """Return a list of .mp4 files for the given MELD split.
 
     Defaults to the organized interim layout: data/interim/MELD/{split}/.../*.mp4
@@ -103,7 +104,9 @@ def prepare_meld_split(
     sample_rate: int = 16000,
 ) -> List[Tuple[Path, Path]]:
     """Backward compatibility alias for process_meld_split(mode='batch')"""
-    return process_meld_split(split=split, mode="batch", root=root, out_dir=out_dir, sample_rate=sample_rate)
+    return process_meld_split(
+        split=split, mode="batch", root=root, out_dir=out_dir, sample_rate=sample_rate
+    )
 
 
 def iter_wavs(
@@ -113,4 +116,6 @@ def iter_wavs(
     sample_rate: int = 16000,
 ) -> Iterator[Path]:
     """Backward compatibility alias for process_meld_split(mode='lazy')"""
-    return process_meld_split(split=split, mode="lazy", root=root, out_dir=out_dir, sample_rate=sample_rate)
+    return process_meld_split(
+        split=split, mode="lazy", root=root, out_dir=out_dir, sample_rate=sample_rate
+    )
