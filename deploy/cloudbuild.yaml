@@ -20,6 +20,7 @@ steps:
       - '--all-tags'
       - '${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPOSITORY}/pitch-perfect-backend'
     id: 'push-image'
+    waitFor: ['build-image']
 
   # Deploy to Cloud Run
   - name: 'gcr.io/cloud-builders/gcloud'
@@ -33,29 +34,24 @@ steps:
       - '${_REGION}'
       - '--platform'
       - 'managed'
-      - '--allow-unauthenticated'  # Remove this for private APIs
+      - '--allow-unauthenticated'
       - '--memory'
       - '4Gi'
       - '--cpu'
       - '2'
       - '--timeout'
-      - '900'  # 15 minutes for long audio processing
-      - '--concurrency'
-      - '10'
-      - '--max-instances'
-      - '100'
+      - '900'
       - '--set-env-vars'
       - 'PYTHONPATH=/home/app'
       - '--set-secrets'
-      - 'OPENAI_API_KEY=${_OPENAI_SECRET}:latest'
-      - '--set-secrets'
-      - 'ELEVENLABS_API_KEY=${_ELEVENLABS_SECRET}:latest'
+      - 'OPENAI_API_KEY=${_OPENAI_SECRET}:latest,ELEVENLABS_API_KEY=${_ELEVENLABS_SECRET}:latest'
     id: 'deploy-cloudrun'
+    waitFor: ['push-image']
 
 # Default substitutions (can be overridden)
 substitutions:
   _REGION: 'europe-west1'
-  _REPOSITORY: 'pitch-perfect-repo'  
+  _REPOSITORY: 'pitch-perfect-repo'
   _SERVICE_NAME: 'pitch-perfect-backend'
   _OPENAI_SECRET: 'openai-api-key'
   _ELEVENLABS_SECRET: 'elevenlabs-api-key'
@@ -64,11 +60,10 @@ substitutions:
 options:
   # Use higher performance machine for faster builds
   machineType: 'E2_HIGHCPU_8'
-  substitutionOption: 'ALLOW_LOOSE'
   logging: CLOUD_LOGGING_ONLY
 
 # Build timeout
-timeout: '1200s'  # 20 minutes
+timeout: '1800s'  # 30 minutes
 
 # Images to be pushed to registry
 images:

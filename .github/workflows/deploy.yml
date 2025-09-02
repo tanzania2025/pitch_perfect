@@ -9,6 +9,8 @@ env:
   REGION: ${{ secrets.GCP_REGION }}
   REPOSITORY: ${{ secrets.GCP_REPOSITORY }}
   SERVICE_NAME: ${{ secrets.GCP_SERVICE_NAME }}
+  OPENAI_SECRET_NAME: ${{ secrets.OPENAI_SECRET_NAME }}
+  ELEVENLABS_SECRET_NAME: ${{ secrets.ELEVENLABS_SECRET_NAME }}
 
 jobs:
   deploy:
@@ -26,50 +28,18 @@ jobs:
       id: auth
       uses: google-github-actions/auth@v2
       with:
-        credentials_json: ${{ secrets.GCP_SA_KEY }}
-        project_id: ${{ env.PROJECT_ID }}
+        workload_identity_provider: ${{ secrets.WIF_PROVIDER }}
+        service_account: ${{ secrets.WIF_SERVICE_ACCOUNT }}
 
     - name: Set up Cloud SDK
       uses: google-github-actions/setup-gcloud@v2
       with:
         project_id: ${{ env.PROJECT_ID }}
-        install_components: 'beta'
+        install_components: 'beta,cloud-build'
 
-    - name: Configure Docker authentication
+    - name: Build and deploy
+      env:
+        SHA: ${{ github.sha }}
       run: |
-        gcloud auth configure-docker ${{ env.REGION }}-docker.pkg.dev --quiet
-
-    - name: Build and deploy using Cloud Build
-      id: deploy
-      run: |
-        gcloud builds submit \
-          --config=deploy/cloudbuild.yaml \
-          --timeout=1800s \
-          --substitutions=_REGION=${{ env.REGION }},_REPOSITORY=${{ env.REPOSITORY }},_SERVICE_NAME=${{ env.SERVICE_NAME }}
-
-    - name: Wait for deployment
-      run: |
-        echo "Waiting for service to be ready..."
-        sleep 30
-
-    - name: Verify deployment
-      run: |
-        MAX_RETRIES=5
-        RETRY_COUNT=0
-
-        while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
-          SERVICE_URL=$(gcloud run services describe ${{ env.SERVICE_NAME }} --region=${{ env.REGION }} --format="value(status.url)")
-          echo "Deployment URL: $SERVICE_URL"
-
-          if curl -f "$SERVICE_URL/health" > /dev/null 2>&1; then
-            echo "✅ Deployment verified successfully!"
-            exit 0
-          else
-            echo "Attempt $((RETRY_COUNT+1))/$MAX_RETRIES: Service not ready yet, waiting..."
-            RETRY_COUNT=$((RETRY_COUNT+1))
-            sleep 30
-          fi
-        done
-
-        echo "❌ Deployment verification failed after $MAX_RETRIES attempts"
-        exit 1
+        chmod +x ./deploy/deploy.sh
+        ./deploy/deploy.sh
