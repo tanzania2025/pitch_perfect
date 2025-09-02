@@ -8,8 +8,7 @@ import os
 
 import numpy as np
 import pandas as pd
-from sklearn.metrics import (accuracy_score, classification_report,
-                             confusion_matrix)
+from sklearn.metrics import accuracy_score, classification_report, confusion_matrix
 from transformers import pipeline
 
 # MELD emotion mapping
