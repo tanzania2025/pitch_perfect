@@ -201,7 +201,15 @@ main() {
     fi
     
     create_repository
-    create_secrets
+    
+    # Skip secret creation in CI - secrets should already exist
+    if [ -z "$CI" ]; then
+        create_secrets
+    else
+        echo -e "${YELLOW}⚠️  Skipping interactive secret creation in CI environment${NC}"
+        echo -e "${YELLOW}   Make sure secrets are already created in Secret Manager${NC}"
+    fi
+    
     build_and_push
     deploy_cloudrun
     test_deployment
