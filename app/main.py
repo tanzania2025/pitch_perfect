@@ -1,437 +1,298 @@
-# app/main.py
+# app/main.py - FastAPI Backend
 import sys
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-import gradio as gr
-from config import load_config
-from pitchperfect.pipeline.orchestrator import PipelineOrchestrator
+from fastapi import FastAPI, File, UploadFile, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
+import uvicorn
 import logging
 import tempfile
 import os
 from datetime import datetime
-import shutil
+from typing import Optional, Dict, Any
+import aiofiles
+from pydantic import BaseModel
 
+from config import load_config
+from pitchperfect.pipeline.orchestrator import PipelineOrchestrator
+
+# Setup logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-class SpeechImprovementApp:
-    """Main application class"""
+# Pydantic models for API
+class ProcessRequest(BaseModel):
+    target_style: str = "professional"
+    improvement_focus: str = "all"
+    save_audio: bool = True
+
+class HealthCheck(BaseModel):
+    status: str
+    timestamp: datetime
+    version: str = "0.1.0"
+
+# Initialize FastAPI app
+app = FastAPI(
+    title="Pitch Perfect API",
+    description="AI-powered speech analysis and improvement backend",
+    version="0.1.0",
+    docs_url="/docs",
+    redoc_url="/redoc"
+)
+
+# Add CORS middleware
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # Configure this for production
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+class SpeechImprovementService:
+    """Backend service for speech improvement processing"""
 
     def __init__(self):
         self.config = load_config()
         self.pipeline = PipelineOrchestrator(self.config)
 
-        # Create output directory for saved audio
+        # Create output directories
         self.output_dir = Path("outputs/generated_audio")
         self.output_dir.mkdir(parents=True, exist_ok=True)
 
-        # Temporary directory for session audio files
         self.temp_dir = Path(tempfile.gettempdir()) / "pitch_perfect"
         self.temp_dir.mkdir(parents=True, exist_ok=True)
 
-        logger.info("Speech Improvement App initialized")
+        logger.info("Speech Improvement Service initialized")
         logger.info(f"Output directory: {self.output_dir}")
         logger.info(f"Temp directory: {self.temp_dir}")
 
-    def process_speech(self, uploaded_audio, recorded_audio, voice_sample, target_style, focus, save_audio):
-        """Process speech through pipeline with support for both uploaded and recorded audio"""
+    async def save_uploaded_file(self, file: UploadFile, prefix: str = "uploaded") -> str:
+        """Save uploaded file to temp directory"""
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        file_extension = Path(file.filename).suffix if file.filename else ".wav"
+        temp_filename = f"{prefix}_{timestamp}{file_extension}"
+        temp_path = self.temp_dir / temp_filename
 
-        # Determine which audio source to use
-        audio_file = None
-        audio_source = ""
+        async with aiofiles.open(temp_path, 'wb') as f:
+            content = await file.read()
+            await f.write(content)
 
-        if recorded_audio is not None:
-            audio_file = recorded_audio
-            audio_source = "recorded"
-            logger.info("Using recorded audio")
-        elif uploaded_audio is not None:
-            audio_file = uploaded_audio
-            audio_source = "uploaded"
-            logger.info("Using uploaded audio")
+        logger.info(f"Saved uploaded file: {temp_path}")
+        return str(temp_path)
 
-        if not audio_file:
-            return (
-                "Please either upload an audio file or record your voice using the microphone",
-                "",
-                "",
-                "",
-                None,  # Audio output
-                ""     # Download path
-            )
+    def process_speech(self,
+                      audio_path: str,
+                      voice_sample_path: Optional[str] = None,
+                      preferences: Optional[Dict] = None) -> Dict[str, Any]:
+        """Process speech through the pipeline"""
+
+        if not os.path.exists(audio_path):
+            raise HTTPException(status_code=400, detail="Audio file not found")
+
+        # Set default preferences
+        default_preferences = {
+            'target_style': 'professional',
+            'improvement_focus': 'all'
+        }
+        user_preferences = {**default_preferences, **(preferences or {})}
 
         try:
-            # Generate unique filename for this session
+            # Generate unique session ID
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-            session_id = f"improved_{audio_source}_{timestamp}"
-
-            # Temporary output path
-            temp_output_path = self.temp_dir / f"{session_id}.mp3"
-
-            # Set preferences
-            preferences = {
-                'target_style': target_style,
-                'improvement_focus': focus
-            }
+            session_id = f"session_{timestamp}"
 
             # Process through pipeline
-            logger.info(f"Processing {audio_source} audio: {audio_file}")
+            logger.info(f"Processing audio: {audio_path}")
             results = self.pipeline.process(
-                audio_path=audio_file,
-                voice_sample_path=voice_sample,
-                output_path=str(temp_output_path) if save_audio else None,
-                user_preferences=preferences
+                audio_path=audio_path,
+                voice_sample_path=voice_sample_path,
+                output_path=None,  # We'll handle this separately
+                user_preferences=user_preferences
             )
 
-            # Format outputs
-            original = f"**Original Text ({audio_source}):**\n\n{results['transcription']['text']}"
-            improved = f"**Improved Text:**\n\n{results['improvements']['improved_text']}"
+            # Save audio if synthesis was successful
+            if 'synthesis' in results and results['synthesis'].get('audio'):
+                output_filename = f"improved_{session_id}.mp3"
+                output_path = self.output_dir / output_filename
 
-            # Format feedback
-            feedback = results['improvements']['feedback']
-            feedback_text = f"### {feedback['summary']}\n\n"
-
-            if feedback['key_improvements']:
-                feedback_text += "**Improvements Made:**\n"
-                for imp in feedback['key_improvements']:
-                    feedback_text += f"• {imp}\n"
-
-            if feedback['speaking_tips']:
-                feedback_text += "\n**Speaking Tips:**\n"
-                for tip in feedback['speaking_tips']:
-                    feedback_text += f"• {tip}\n"
-
-            # Format metrics and issues
-            metrics = results['metrics']
-            issues = results['improvements']['issues']
-
-            metrics_text = f"### Analysis Results\n\n"
-            metrics_text += f"**Audio Source:** {audio_source.capitalize()}\n"
-            metrics_text += f"**Processing Time:** {metrics['processing_time_seconds']:.1f} seconds\n"
-            metrics_text += f"**Word Count:** {metrics['original_word_count']} → {metrics['improved_word_count']}\n"
-            metrics_text += f"**Issues Found:** {metrics['issues_found']}\n"
-            metrics_text += f"**Severity Level:** {metrics['severity'].upper()}\n\n"
-
-            if issues['text_issues']:
-                metrics_text += f"**Text Issues:** {', '.join(issues['text_issues'])}\n"
-            if issues['delivery_issues']:
-                metrics_text += f"**Delivery Issues:** {', '.join(issues['delivery_issues'])}\n"
-
-            # Handle audio output
-            audio_output_path = None
-            download_path = ""
-
-            if save_audio and 'synthesis' in results and results['synthesis'].get('audio'):
-                # Save to permanent location if requested
-                permanent_output_path = self.output_dir / f"{session_id}.mp3"
-
-                # Write audio bytes to file
                 audio_bytes = results['synthesis']['audio']
-                with open(permanent_output_path, 'wb') as f:
+                with open(output_path, 'wb') as f:
                     f.write(audio_bytes)
 
-                # Also save to temp for immediate playback
-                with open(temp_output_path, 'wb') as f:
-                    f.write(audio_bytes)
+                results['synthesis']['output_path'] = str(output_path)
+                results['synthesis']['filename'] = output_filename
+                logger.info(f"Audio saved: {output_path}")
+                
+                # Remove binary audio data from response to avoid JSON serialization issues
+                del results['synthesis']['audio']
 
-                audio_output_path = str(temp_output_path)
-                download_path = f"✅ Audio saved to: outputs/generated_audio/{session_id}.mp3"
+            # Add session info
+            results['session_id'] = session_id
+            results['processing_status'] = 'completed'
 
-                logger.info(f"Audio saved to {permanent_output_path}")
-
-            elif 'synthesis' in results and results['synthesis'].get('audio'):
-                # Just save to temp for playback without permanent storage
-                audio_bytes = results['synthesis']['audio']
-                with open(temp_output_path, 'wb') as f:
-                    f.write(audio_bytes)
-                audio_output_path = str(temp_output_path)
-                download_path = "⚠️ Audio not saved permanently (enable 'Save Audio' to keep)"
-
-            # Add emotion info
-            sentiment = results['sentiment']
-            emotion_text = f"\n\n### Emotion Analysis\n"
-            emotion_text += f"**Primary Emotion:** {sentiment['emotion'].capitalize()} ({sentiment['confidence']:.1%})\n"
-            emotion_text += f"**Sentiment:** {sentiment['sentiment'].capitalize()}\n"
-            emotion_text += f"**Valence:** {sentiment['valence']:.2f} (-1 to 1)\n"
-            emotion_text += f"**Arousal:** {sentiment['arousal']:.2f} (0 to 1)"
-
-            metrics_text += emotion_text
-
-            return (
-                original,
-                improved,
-                feedback_text,
-                metrics_text,
-                audio_output_path,
-                download_path
-            )
+            return results
 
         except Exception as e:
             logger.error(f"Processing failed: {e}")
-            error_msg = f"❌ Error: {str(e)}"
-            return error_msg, "", "", "", None, ""
+            raise HTTPException(status_code=500, detail=f"Processing failed: {str(e)}")
 
-    def clear_inputs(self):
-        """Clear all input fields"""
-        return None, None, None
-
-    def cleanup_temp_files(self):
-        """Clean up temporary files older than 1 hour"""
+    def cleanup_temp_files(self, max_age_hours: int = 1):
+        """Clean up temporary files older than specified hours"""
         try:
             import time
             current_time = time.time()
+            max_age_seconds = max_age_hours * 3600
 
-            for file_path in self.temp_dir.glob("*.mp3"):
-                file_age = current_time - file_path.stat().st_mtime
-                if file_age > 3600:  # 1 hour
-                    try:
-                        file_path.unlink()
-                        logger.info(f"Cleaned up temp file: {file_path}")
-                    except:
-                        pass
-            return "Cleanup completed"
+            cleaned_count = 0
+            for file_path in self.temp_dir.glob("*"):
+                if file_path.is_file():
+                    file_age = current_time - file_path.stat().st_mtime
+                    if file_age > max_age_seconds:
+                        try:
+                            file_path.unlink()
+                            cleaned_count += 1
+                            logger.info(f"Cleaned up temp file: {file_path}")
+                        except Exception as e:
+                            logger.warning(f"Failed to clean up {file_path}: {e}")
+
+            logger.info(f"Cleanup completed: {cleaned_count} files removed")
+            return {"cleaned_files": cleaned_count, "status": "success"}
+
         except Exception as e:
             logger.error(f"Cleanup failed: {e}")
-            return f"Cleanup failed: {e}"
+            return {"error": str(e), "status": "failed"}
 
-def create_interface():
-    """Create enhanced Gradio interface with voice recording"""
-    app = SpeechImprovementApp()
+# Initialize service
+speech_service = SpeechImprovementService()
 
-    # Custom CSS for better styling
-    custom_css = """
-    .output-markdown {
-        max-height: 400px;
-        overflow-y: auto;
-    }
-    .audio-output {
-        margin-top: 20px;
-    }
-    .input-section {
-        border: 1px solid #e0e0e0;
-        border-radius: 8px;
-        padding: 15px;
-        margin: 10px 0;
-    }
-    .record-button {
-        margin: 10px 0;
-    }
-    .divider {
-        margin: 15px 0;
-        text-align: center;
-        color: #666;
-        font-weight: bold;
-    }
+@app.get("/", response_model=HealthCheck)
+async def root():
+    """Health check endpoint"""
+    return HealthCheck(
+        status="healthy",
+        timestamp=datetime.now()
+    )
+
+@app.get("/health", response_model=HealthCheck)
+async def health_check():
+    """Detailed health check"""
+    return HealthCheck(
+        status="healthy",
+        timestamp=datetime.now()
+    )
+
+@app.post("/process-audio")
+async def process_audio(
+    audio_file: UploadFile = File(..., description="Audio file to process"),
+    voice_sample: Optional[UploadFile] = File(None, description="Optional voice sample for cloning"),
+    target_style: str = "professional",
+    improvement_focus: str = "all",
+    save_audio: bool = True
+):
+    """
+    Process uploaded audio file through the speech improvement pipeline
+
+    - **audio_file**: Audio file (WAV, MP3, M4A, FLAC)
+    - **voice_sample**: Optional voice sample for cloning
+    - **target_style**: professional, casual, academic, motivational
+    - **improvement_focus**: all, clarity, confidence, engagement
+    - **save_audio**: Whether to save the improved audio file
     """
 
-    with gr.Blocks(title="Pitch Perfect - Speech Improvement", css=custom_css) as interface:
-        gr.Markdown("""
-        # 🎙️ Pitch Perfect - Speech Improvement System
+    # Validate file types
+    allowed_types = [
+        "audio/wav", "audio/mpeg", "audio/mp3",
+        "audio/mp4", "audio/m4a", "audio/flac",
+        "audio/x-wav", "audio/x-m4a"
+    ]
 
-        Transform your speech with AI-powered analysis and improvements. Record or upload your speech to receive:
-        - 📝 Text transcription and improvements
-        - 🎭 Emotion and sentiment analysis
-        - 🎵 Tonal quality assessment
-        - 🔊 Re-synthesized speech with improvements
-        """)
-
-        with gr.Row():
-            with gr.Column(scale=1):
-                gr.Markdown("### 🎤 Audio Input Options")
-
-                # Recording Section
-                with gr.Group(elem_classes="input-section"):
-                    gr.Markdown("#### Option 1: Record Your Voice")
-                    gr.Markdown("⚠️ **Browser Requirements:**")
-                    gr.Markdown("- Allow microphone permissions when prompted")
-                    gr.Markdown("- Use Chrome/Firefox/Safari for best compatibility")
-                    gr.Markdown("- Ensure you're on HTTPS or localhost")
-
-                    recorded_audio = gr.Audio(
-                        label="🔴 Click to Record (may take a moment to initialize)",
-                        sources=["microphone"],
-                        type="filepath",
-                        elem_classes="record-button",
-                        show_download_button=False,
-                        streaming=False
-                    )
-
-                gr.Markdown("**OR**", elem_classes="divider")
-
-                # Upload Section
-                with gr.Group(elem_classes="input-section"):
-                    gr.Markdown("#### Option 2: Upload Audio File")
-                    uploaded_audio = gr.Audio(
-                        label="📎 Upload Speech Recording (WAV/MP3)",
-                        sources=["upload"],
-                        type="filepath",
-                        elem_classes="input-audio"
-                    )
-
-                # Voice Sample Section
-                gr.Markdown("### 🎭 Voice Cloning (Optional)")
-                voice_sample = gr.Audio(
-                    label="🎤 Voice Sample for Cloning",
-                    sources=["upload"],
-                    type="filepath",
-                    elem_classes="voice-sample"
-                )
-                gr.Markdown("*Upload a sample of the target voice for speech synthesis*", elem_classes="help-text")
-
-                # Settings
-                gr.Markdown("### ⚙️ Processing Settings")
-                with gr.Row():
-                    style = gr.Dropdown(
-                        ["professional", "casual", "academic", "motivational"],
-                        value="professional",
-                        label="🎯 Target Style"
-                    )
-                    focus = gr.Dropdown(
-                        ["all", "clarity", "confidence", "engagement"],
-                        value="all",
-                        label="🔍 Focus Area"
-                    )
-
-                save_audio = gr.Checkbox(
-                    label="💾 Save Generated Audio",
-                    value=True,
-                    info="Save the improved audio to outputs folder"
-                )
-
-                # Action Buttons
-                with gr.Row():
-                    process_btn = gr.Button(
-                        "🚀 Analyze & Improve Speech",
-                        variant="primary",
-                        size="lg"
-                    )
-                    clear_btn = gr.Button(
-                        "🗑️ Clear All",
-                        variant="secondary",
-                        size="sm"
-                    )
-
-                gr.Markdown("""
-                ### 📋 Quick Instructions:
-                1. **Record** your voice or **upload** an audio file
-                2. Optionally add a voice sample for cloning
-                3. Choose your target style and focus area
-                4. Click **'Analyze & Improve Speech'**
-                5. Listen to the improved version and review feedback
-
-                **Supported formats:** WAV, MP3, M4A, FLAC
-
-                ### 🔧 Microphone Troubleshooting:
-                - **Permission denied:** Click the 🔒 icon in browser address bar to allow microphone
-                - **No microphone found:** Check system audio settings and browser permissions
-                - **Still not working?** Use the upload option with a voice recording app
-                - **Mobile users:** Recording works best in mobile browsers like Chrome/Safari
-                """)
-
-        with gr.Row():
-            with gr.Column(scale=1):
-                gr.Markdown("### 📄 Text Analysis")
-                original_output = gr.Markdown(
-                    label="Original Text",
-                    elem_classes="output-markdown"
-                )
-                improved_output = gr.Markdown(
-                    label="Improved Text",
-                    elem_classes="output-markdown"
-                )
-
-            with gr.Column(scale=1):
-                gr.Markdown("### 📊 Results & Feedback")
-                metrics_output = gr.Markdown(
-                    label="Analysis Metrics",
-                    elem_classes="output-markdown"
-                )
-                feedback_output = gr.Markdown(
-                    label="Improvement Feedback",
-                    elem_classes="output-markdown"
-                )
-
-        # Audio Output Section
-        with gr.Row():
-            with gr.Column():
-                gr.Markdown("### 🔊 Improved Speech Output")
-                audio_output = gr.Audio(
-                    label="Generated Speech",
-                    type="filepath",
-                    elem_classes="audio-output",
-                    autoplay=False,
-                    show_download_button=True
-                )
-                download_status = gr.Markdown(
-                    label="Save Status",
-                    elem_classes="download-status"
-                )
-
-        # Hidden output for cleanup function
-        cleanup_output = gr.Textbox(visible=False)
-
-        # Event handlers
-        process_btn.click(
-            fn=app.process_speech,
-            inputs=[
-                uploaded_audio,
-                recorded_audio,
-                voice_sample,
-                style,
-                focus,
-                save_audio
-            ],
-            outputs=[
-                original_output,
-                improved_output,
-                feedback_output,
-                metrics_output,
-                audio_output,
-                download_status
-            ]
+    if audio_file.content_type not in allowed_types:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Unsupported audio format: {audio_file.content_type}"
         )
 
-        clear_btn.click(
-            fn=app.clear_inputs,
-            inputs=None,
-            outputs=[uploaded_audio, recorded_audio, voice_sample]
+    try:
+        # Save uploaded files
+        audio_path = await speech_service.save_uploaded_file(audio_file, "audio")
+
+        voice_sample_path = None
+        if voice_sample and voice_sample.filename:  # Check if voice_sample exists and has content
+            if voice_sample.content_type not in allowed_types:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Unsupported voice sample format: {voice_sample.content_type}"
+                )
+            voice_sample_path = await speech_service.save_uploaded_file(voice_sample, "voice_sample")
+
+        # Process audio
+        preferences = {
+            'target_style': target_style,
+            'improvement_focus': improvement_focus
+        }
+
+        results = speech_service.process_speech(
+            audio_path=audio_path,
+            voice_sample_path=voice_sample_path,
+            preferences=preferences
         )
 
-        # Clean up old temp files when interface loads
-        interface.load(
-            fn=app.cleanup_temp_files,
-            inputs=None,
-            outputs=cleanup_output
-        )
+        return results
 
-        # Footer
-        gr.Markdown("""
-        ---
-        ### 🚀 Features:
-        - 🎯 **Speech-to-Text**: Accurate transcription using Whisper
-        - 🎭 **Sentiment Analysis**: Emotion and mood detection
-        - 🎵 **Tonal Analysis**: Pitch, pace, and energy assessment
-        - ✨ **AI Improvements**: GPT-powered text enhancement
-        - 🔊 **Voice Synthesis**: Text-to-speech with voice cloning
-        - 🎤 **Live Recording**: Record directly in the browser
-        - 💾 **Export Options**: Save improved audio for later use
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Unexpected error: {e}")
+        raise HTTPException(status_code=500, detail="Internal server error")
 
-        *Note: Processing may take 15-30 seconds depending on audio length. For best recording quality, use a quiet environment.*
-        """)
+@app.get("/download-audio/{filename}")
+async def download_audio(filename: str):
+    """Download generated audio file"""
+    file_path = speech_service.output_dir / filename
 
-    return interface
+    if not file_path.exists():
+        raise HTTPException(status_code=404, detail="Audio file not found")
+
+    return FileResponse(
+        path=file_path,
+        media_type="audio/mpeg",
+        filename=filename
+    )
+
+@app.post("/cleanup")
+async def cleanup_temp_files(max_age_hours: int = 1):
+    """Clean up temporary files older than specified hours"""
+    result = speech_service.cleanup_temp_files(max_age_hours)
+    return result
+
+@app.get("/config")
+async def get_config():
+    """Get current configuration (excluding sensitive keys)"""
+    config = speech_service.config.copy()
+
+    # Remove sensitive information
+    sensitive_keys = ['api_key', 'openai', 'elevenlabs']
+    for key in sensitive_keys:
+        if key in config.get('llm_processing', {}):
+            config['llm_processing'][key] = "***HIDDEN***"
+        if key in config.get('text_to_speech', {}):
+            config['text_to_speech'][key] = "***HIDDEN***"
+
+    return config
 
 if __name__ == "__main__":
     # Create necessary directories
     Path("outputs/generated_audio").mkdir(parents=True, exist_ok=True)
-    Path("examples").mkdir(parents=True, exist_ok=True)
-
-    # Launch the interface
-    interface = create_interface()
-    interface.launch(
-        server_name="0.0.0.0",
-        server_port=7860,
-        share=True,
-        show_error=True,
-        max_threads=10
+    Path("outputs/logs").mkdir(parents=True, exist_ok=True)
+    port = int(os.environ.get("PORT", 8000))
+    # Run the server
+    uvicorn.run(
+        "app.main:app",
+        host="0.0.0.0",
+        port=port,
+        reload=True,
+        log_level="info"
     )

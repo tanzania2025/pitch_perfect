@@ -52,7 +52,7 @@ llm_processing:
 text_to_speech:
   provider: elevenlabs
   api_key: ${ELEVENLABS_API_KEY}
-  default_voice: adam
+  default_voice: onwK4e9ZLuTAKqWW03F9  # Daniel - male voice
   output_format: mp3
   sample_rate: 22050
 
