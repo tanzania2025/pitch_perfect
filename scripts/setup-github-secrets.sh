@@ -1,0 +1,23 @@
+#!/bin/bash
+# Script to help set up GitHub secrets for deployment
+
+echo "🔧 GitHub Secrets Setup Helper"
+echo "=============================="
+echo ""
+echo "You need to add the following secrets to your GitHub repository:"
+echo ""
+echo "1. GCP_SA_KEY - Your service account key JSON"
+echo "   Location: ./github-actions-key.json"
+echo ""
+echo "To add the GCP_SA_KEY secret:"
+echo "1. Copy this command output:"
+echo ""
+echo "cat github-actions-key.json | base64"
+echo ""
+echo "2. Go to: https://github.com/tanzania2025/pitch_perfect/settings/secrets/actions"
+echo "3. Click 'New repository secret'"
+echo "4. Name: GCP_SA_KEY"
+echo "5. Value: Paste the base64 output"
+echo ""
+echo "Or use GitHub CLI if installed:"
+echo "gh secret set GCP_SA_KEY < github-actions-key.json"
