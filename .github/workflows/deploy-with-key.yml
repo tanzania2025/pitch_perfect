@@ -9,8 +9,8 @@ env:
   REGION: europe-west1
   REPOSITORY: pitch-perfect-repo
   SERVICE_NAME: pitch-perfect-backend
-  OPENAI_SECRET_NAME: openai-api-key
-  ELEVENLABS_SECRET_NAME: elevenlabs-api-key
+  OPENAI_SECRET_NAME: ${OPENAI_API_KEY}
+  ELEVENLABS_SECRET_NAME: ${ELEVENLABS_API_KEY}
 
 jobs:
   deploy:
