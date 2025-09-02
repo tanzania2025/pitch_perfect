@@ -61,7 +61,7 @@ class ProsodyExtractor:
             "tempo": {
                 "speaking_rate_wpm": float(words_per_minute),
                 "syllables_per_second": float(syllables_per_second),
-                "tempo_bpm": float(tempo),
+                "tempo_bpm": float(tempo[0] if hasattr(tempo, '__len__') and len(tempo) > 0 else tempo),
             },
             "pauses": pause_info,
         }
