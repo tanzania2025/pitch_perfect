@@ -21,7 +21,7 @@ def organize_meld_data():
     splits = {
         "train": external_dir / "train" / "train_splits",
         "dev": external_dir / "dev_splits_complete",
-        "test": external_dir / "output_repeated_splits_test"
+        "test": external_dir / "output_repeated_splits_test",
     }
 
     for split_name, source_dir in splits.items():
@@ -50,7 +50,9 @@ def organize_meld_data():
                 shutil.copy2(csv_file, dest_file)
                 print(f"  📊 Copied {csv_file.name}")
 
-        print(f"  ✅ {split_name}: {len(mp4_files)} MP4 files, {len(csv_files)} CSV files")
+        print(
+            f"  ✅ {split_name}: {len(mp4_files)} MP4 files, {len(csv_files)} CSV files"
+        )
 
     print(f"\n🎯 MELD data organized in {interim_dir}")
     print("Next step: Convert MP4 to WAV using 'make meld-to-wav'")

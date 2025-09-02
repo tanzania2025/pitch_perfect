@@ -1,6 +1,7 @@
 # app/main.py - FastAPI Backend
 import sys
 from pathlib import Path
+
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from fastapi import FastAPI, File, UploadFile, HTTPException
@@ -22,16 +23,19 @@ from pitchperfect.pipeline.orchestrator import PipelineOrchestrator
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+
 # Pydantic models for API
 class ProcessRequest(BaseModel):
     target_style: str = "professional"
     improvement_focus: str = "all"
     save_audio: bool = True
 
+
 class HealthCheck(BaseModel):
     status: str
     timestamp: datetime
     version: str = "0.1.0"
+
 
 # Initialize FastAPI app
 app = FastAPI(
@@ -39,7 +43,7 @@ app = FastAPI(
     description="AI-powered speech analysis and improvement backend",
     version="0.1.0",
     docs_url="/docs",
-    redoc_url="/redoc"
+    redoc_url="/redoc",
 )
 
 # Add CORS middleware
@@ -50,6 +54,7 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
 
 class SpeechImprovementService:
     """Backend service for speech improvement processing"""
@@ -69,24 +74,28 @@ class SpeechImprovementService:
         logger.info(f"Output directory: {self.output_dir}")
         logger.info(f"Temp directory: {self.temp_dir}")
 
-    async def save_uploaded_file(self, file: UploadFile, prefix: str = "uploaded") -> str:
+    async def save_uploaded_file(
+        self, file: UploadFile, prefix: str = "uploaded"
+    ) -> str:
         """Save uploaded file to temp directory"""
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         file_extension = Path(file.filename).suffix if file.filename else ".wav"
         temp_filename = f"{prefix}_{timestamp}{file_extension}"
         temp_path = self.temp_dir / temp_filename
 
-        async with aiofiles.open(temp_path, 'wb') as f:
+        async with aiofiles.open(temp_path, "wb") as f:
             content = await file.read()
             await f.write(content)
 
         logger.info(f"Saved uploaded file: {temp_path}")
         return str(temp_path)
 
-    def process_speech(self,
-                      audio_path: str,
-                      voice_sample_path: Optional[str] = None,
-                      preferences: Optional[Dict] = None) -> Dict[str, Any]:
+    def process_speech(
+        self,
+        audio_path: str,
+        voice_sample_path: Optional[str] = None,
+        preferences: Optional[Dict] = None,
+    ) -> Dict[str, Any]:
         """Process speech through the pipeline"""
 
         if not os.path.exists(audio_path):
@@ -94,8 +103,8 @@ class SpeechImprovementService:
 
         # Set default preferences
         default_preferences = {
-            'target_style': 'professional',
-            'improvement_focus': 'all'
+            "target_style": "professional",
+            "improvement_focus": "all",
         }
         user_preferences = {**default_preferences, **(preferences or {})}
 
@@ -110,28 +119,28 @@ class SpeechImprovementService:
                 audio_path=audio_path,
                 voice_sample_path=voice_sample_path,
                 output_path=None,  # We'll handle this separately
-                user_preferences=user_preferences
+                user_preferences=user_preferences,
             )
 
             # Save audio if synthesis was successful
-            if 'synthesis' in results and results['synthesis'].get('audio'):
+            if "synthesis" in results and results["synthesis"].get("audio"):
                 output_filename = f"improved_{session_id}.mp3"
                 output_path = self.output_dir / output_filename
 
-                audio_bytes = results['synthesis']['audio']
-                with open(output_path, 'wb') as f:
+                audio_bytes = results["synthesis"]["audio"]
+                with open(output_path, "wb") as f:
                     f.write(audio_bytes)
 
-                results['synthesis']['output_path'] = str(output_path)
-                results['synthesis']['filename'] = output_filename
+                results["synthesis"]["output_path"] = str(output_path)
+                results["synthesis"]["filename"] = output_filename
                 logger.info(f"Audio saved: {output_path}")
-                
+
                 # Remove binary audio data from response to avoid JSON serialization issues
-                del results['synthesis']['audio']
+                del results["synthesis"]["audio"]
 
             # Add session info
-            results['session_id'] = session_id
-            results['processing_status'] = 'completed'
+            results["session_id"] = session_id
+            results["processing_status"] = "completed"
 
             return results
 
@@ -143,6 +152,7 @@ class SpeechImprovementService:
         """Clean up temporary files older than specified hours"""
         try:
             import time
+
             current_time = time.time()
             max_age_seconds = max_age_hours * 3600
 
@@ -165,32 +175,32 @@ class SpeechImprovementService:
             logger.error(f"Cleanup failed: {e}")
             return {"error": str(e), "status": "failed"}
 
+
 # Initialize service
 speech_service = SpeechImprovementService()
+
 
 @app.get("/", response_model=HealthCheck)
 async def root():
     """Health check endpoint"""
-    return HealthCheck(
-        status="healthy",
-        timestamp=datetime.now()
-    )
+    return HealthCheck(status="healthy", timestamp=datetime.now())
+
 
 @app.get("/health", response_model=HealthCheck)
 async def health_check():
     """Detailed health check"""
-    return HealthCheck(
-        status="healthy",
-        timestamp=datetime.now()
-    )
+    return HealthCheck(status="healthy", timestamp=datetime.now())
+
 
 @app.post("/process-audio")
 async def process_audio(
     audio_file: UploadFile = File(..., description="Audio file to process"),
-    voice_sample: Optional[UploadFile] = File(None, description="Optional voice sample for cloning"),
+    voice_sample: Optional[UploadFile] = File(
+        None, description="Optional voice sample for cloning"
+    ),
     target_style: str = "professional",
     improvement_focus: str = "all",
-    save_audio: bool = True
+    save_audio: bool = True,
 ):
     """
     Process uploaded audio file through the speech improvement pipeline
@@ -204,15 +214,20 @@ async def process_audio(
 
     # Validate file types
     allowed_types = [
-        "audio/wav", "audio/mpeg", "audio/mp3",
-        "audio/mp4", "audio/m4a", "audio/flac",
-        "audio/x-wav", "audio/x-m4a"
+        "audio/wav",
+        "audio/mpeg",
+        "audio/mp3",
+        "audio/mp4",
+        "audio/m4a",
+        "audio/flac",
+        "audio/x-wav",
+        "audio/x-m4a",
     ]
 
     if audio_file.content_type not in allowed_types:
         raise HTTPException(
             status_code=400,
-            detail=f"Unsupported audio format: {audio_file.content_type}"
+            detail=f"Unsupported audio format: {audio_file.content_type}",
         )
 
     try:
@@ -220,24 +235,28 @@ async def process_audio(
         audio_path = await speech_service.save_uploaded_file(audio_file, "audio")
 
         voice_sample_path = None
-        if voice_sample and voice_sample.filename:  # Check if voice_sample exists and has content
+        if (
+            voice_sample and voice_sample.filename
+        ):  # Check if voice_sample exists and has content
             if voice_sample.content_type not in allowed_types:
                 raise HTTPException(
                     status_code=400,
-                    detail=f"Unsupported voice sample format: {voice_sample.content_type}"
+                    detail=f"Unsupported voice sample format: {voice_sample.content_type}",
                 )
-            voice_sample_path = await speech_service.save_uploaded_file(voice_sample, "voice_sample")
+            voice_sample_path = await speech_service.save_uploaded_file(
+                voice_sample, "voice_sample"
+            )
 
         # Process audio
         preferences = {
-            'target_style': target_style,
-            'improvement_focus': improvement_focus
+            "target_style": target_style,
+            "improvement_focus": improvement_focus,
         }
 
         results = speech_service.process_speech(
             audio_path=audio_path,
             voice_sample_path=voice_sample_path,
-            preferences=preferences
+            preferences=preferences,
         )
 
         return results
@@ -248,6 +267,7 @@ async def process_audio(
         logger.error(f"Unexpected error: {e}")
         raise HTTPException(status_code=500, detail="Internal server error")
 
+
 @app.get("/download-audio/{filename}")
 async def download_audio(filename: str):
     """Download generated audio file"""
@@ -256,11 +276,8 @@ async def download_audio(filename: str):
     if not file_path.exists():
         raise HTTPException(status_code=404, detail="Audio file not found")
 
-    return FileResponse(
-        path=file_path,
-        media_type="audio/mpeg",
-        filename=filename
-    )
+    return FileResponse(path=file_path, media_type="audio/mpeg", filename=filename)
+
 
 @app.post("/cleanup")
 async def cleanup_temp_files(max_age_hours: int = 1):
@@ -268,20 +285,22 @@ async def cleanup_temp_files(max_age_hours: int = 1):
     result = speech_service.cleanup_temp_files(max_age_hours)
     return result
 
+
 @app.get("/config")
 async def get_config():
     """Get current configuration (excluding sensitive keys)"""
     config = speech_service.config.copy()
 
     # Remove sensitive information
-    sensitive_keys = ['api_key', 'openai', 'elevenlabs']
+    sensitive_keys = ["api_key", "openai", "elevenlabs"]
     for key in sensitive_keys:
-        if key in config.get('llm_processing', {}):
-            config['llm_processing'][key] = "***HIDDEN***"
-        if key in config.get('text_to_speech', {}):
-            config['text_to_speech'][key] = "***HIDDEN***"
+        if key in config.get("llm_processing", {}):
+            config["llm_processing"][key] = "***HIDDEN***"
+        if key in config.get("text_to_speech", {}):
+            config["text_to_speech"][key] = "***HIDDEN***"
 
     return config
+
 
 if __name__ == "__main__":
     # Create necessary directories
@@ -290,9 +309,5 @@ if __name__ == "__main__":
     port = int(os.environ.get("PORT", 8000))
     # Run the server
     uvicorn.run(
-        "app.main:app",
-        host="0.0.0.0",
-        port=port,
-        reload=True,
-        log_level="info"
+        "app.main:app", host="0.0.0.0", port=port, reload=True, log_level="info"
     )

@@ -14,6 +14,7 @@ from sklearn.metrics import accuracy_score, classification_report, confusion_mat
 MELD_CLASSES = ["anger", "disgust", "fear", "joy", "neutral", "sadness", "surprise"]
 MELD_LABEL2ID = {c: i for i, c in enumerate(MELD_CLASSES)}
 
+
 def load_meld_test_data(data_dir):
     """Load MELD test data."""
     test_csv = os.path.join(data_dir, "test_sent_emo.csv")
@@ -31,12 +32,14 @@ def load_meld_test_data(data_dir):
         print(f"Error: {e}")
         return None
 
+
 def evaluate_sentiment_distilroberta(test_df):
     """Evaluate standard DistilRoBERTa sentiment model."""
     print("Evaluating DistilRoBERTa (Sentiment)...")
 
-    classifier = pipeline("sentiment-analysis",
-                         model="distilbert-base-uncased-finetuned-sst-2-english")
+    classifier = pipeline(
+        "sentiment-analysis", model="distilbert-base-uncased-finetuned-sst-2-english"
+    )
 
     # Simple mapping: sentiment -> MELD emotion
     sentiment_to_meld = {"NEGATIVE": "sadness", "POSITIVE": "joy"}
@@ -47,7 +50,7 @@ def evaluate_sentiment_distilroberta(test_df):
 
     for text in texts:
         result = classifier(text)[0]
-        sentiment = result['label']
+        sentiment = result["label"]
 
         if sentiment in sentiment_to_meld:
             emotion = sentiment_to_meld[sentiment]
@@ -59,26 +62,32 @@ def evaluate_sentiment_distilroberta(test_df):
 
     return y_true, np.array(y_pred)
 
+
 def evaluate_emotion_distilroberta(test_df):
     """Evaluate emotion-specific DistilRoBERTa."""
     print("Evaluating DistilRoBERTa (Emotion)...")
 
-    classifier = pipeline("text-classification",
-                         model="j-hartmann/emotion-english-distilroberta-base")
+    classifier = pipeline(
+        "text-classification", model="j-hartmann/emotion-english-distilroberta-base"
+    )
 
     texts = test_df["text"].tolist()
     y_true = test_df["label"].values
     y_pred = []
 
     emotion_mapping = {
-        "anger": "anger", "disgust": "disgust", "fear": "fear",
-        "joy": "joy", "neutral": "neutral", "sadness": "sadness",
-        "surprise": "surprise"
+        "anger": "anger",
+        "disgust": "disgust",
+        "fear": "fear",
+        "joy": "joy",
+        "neutral": "neutral",
+        "sadness": "sadness",
+        "surprise": "surprise",
     }
 
     for text in texts:
         result = classifier(text)[0]
-        emotion = result['label'].lower()
+        emotion = result["label"].lower()
 
         if emotion in emotion_mapping:
             meld_emotion = emotion_mapping[emotion]
@@ -90,6 +99,7 @@ def evaluate_emotion_distilroberta(test_df):
 
     return y_true, np.array(y_pred)
 
+
 def print_results(y_true, y_pred, model_name):
     """Print evaluation results."""
     accuracy = accuracy_score(y_true, y_pred)
@@ -100,8 +110,10 @@ def print_results(y_true, y_pred, model_name):
     print("\nPer-class Report:")
     print(classification_report(y_true, y_pred, target_names=MELD_CLASSES, digits=4))
 
+
 def main():
     import argparse
+
     parser = argparse.ArgumentParser(description="Compare DistilRoBERTa models on MELD")
     parser.add_argument("--data_dir", required=True, help="Directory with MELD data")
     args = parser.parse_args()
@@ -127,7 +139,10 @@ def main():
     print(f"{'='*60}")
     print(f"Sentiment DistilRoBERTa: {acc_sent:.4f}")
     print(f"Emotion DistilRoBERTa:   {acc_emo:.4f}")
-    print(f"Best Model: {'Emotion' if acc_emo > acc_sent else 'Sentiment'} DistilRoBERTa")
+    print(
+        f"Best Model: {'Emotion' if acc_emo > acc_sent else 'Sentiment'} DistilRoBERTa"
+    )
+
 
 if __name__ == "__main__":
     main()

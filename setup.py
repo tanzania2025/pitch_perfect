@@ -1,21 +1,24 @@
 """
 Setup configuration for PitchPerfect AI package
 """
+
 from setuptools import setup, find_packages
 import os
 
 # Read the contents of README file
 this_directory = os.path.abspath(os.path.dirname(__file__))
 try:
-    with open(os.path.join(this_directory, 'README.md'), encoding='utf-8') as f:
+    with open(os.path.join(this_directory, "README.md"), encoding="utf-8") as f:
         long_description = f.read()
 except FileNotFoundError:
     long_description = "AI-powered speech analysis and improvement system"
 
+
 # Read requirements from requirements.txt
 def read_requirements():
-    with open('requirements.txt', 'r') as f:
-        return [line.strip() for line in f if line.strip() and not line.startswith('#')]
+    with open("requirements.txt", "r") as f:
+        return [line.strip() for line in f if line.strip() and not line.startswith("#")]
+
 
 setup(
     name="pitchperfect",

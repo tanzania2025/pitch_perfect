@@ -5,7 +5,7 @@ import os
 from elevenlabs import voices, set_api_key
 
 # Set API key from environment
-api_key = os.getenv('ELEVENLABS_API_KEY')
+api_key = os.getenv("ELEVENLABS_API_KEY")
 if not api_key:
     print("ELEVENLABS_API_KEY not set")
     exit(1)

@@ -4,6 +4,7 @@ from typing import Dict, List, Optional, Any
 from enum import Enum
 from datetime import datetime
 
+
 class EmotionEnum(str, Enum):
     happy = "happy"
     sad = "sad"
@@ -13,15 +14,18 @@ class EmotionEnum(str, Enum):
     disgust = "disgust"
     neutral = "neutral"
 
+
 class SentimentEnum(str, Enum):
     positive = "positive"
     negative = "negative"
     neutral = "neutral"
 
+
 class SeverityEnum(str, Enum):
     low = "low"
     medium = "medium"
     high = "high"
+
 
 # Input schemas
 class ProcessRequest(BaseModel):
@@ -30,11 +34,13 @@ class ProcessRequest(BaseModel):
     output_path: Optional[str] = None
     user_preferences: Optional[Dict] = Field(default_factory=dict)
 
+
 # Output schemas
 class TranscriptionOutput(BaseModel):
     text: str
     confidence: Optional[float] = None
     segments: Optional[List] = None
+
 
 class SentimentOutput(BaseModel):
     emotion: EmotionEnum
@@ -44,11 +50,13 @@ class SentimentOutput(BaseModel):
     arousal: float = Field(ge=0.0, le=1.0)
     sentiment: SentimentEnum
 
+
 class TonalOutput(BaseModel):
     prosodic_features: Dict
     voice_quality: Dict
     acoustic_problems: List[str]
     spectral_features: Dict
+
 
 class ImprovementsOutput(BaseModel):
     improved_text: str
@@ -57,6 +65,7 @@ class ImprovementsOutput(BaseModel):
     feedback: Dict
     prosody_guide: Dict
     ssml_markup: str
+
 
 class ProcessResponse(BaseModel):
     timestamp: datetime
