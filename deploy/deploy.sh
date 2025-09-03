@@ -111,7 +111,7 @@ build_and_push() {
 enable_apis() {
     echo -e "${YELLOW}🔌 Enabling required Google Cloud APIs...${NC}"
 
-    gcloud services enable cloudbuild.googleapis.com
+    # gcloud services enable cloudbuild.googleapis.com  # Not needed for manual deployment
     gcloud services enable run.googleapis.com
     gcloud services enable artifactregistry.googleapis.com
     gcloud services enable secretmanager.googleapis.com
