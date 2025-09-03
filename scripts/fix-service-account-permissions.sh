@@ -33,6 +33,12 @@ gcloud projects add-iam-policy-binding $PROJECT_ID \
     --member="serviceAccount:$SERVICE_ACCOUNT" \
     --role="roles/iam.serviceAccountUser"
 
+# Additional permission to act as the default compute service account
+COMPUTE_SA="792590041292-compute@developer.gserviceaccount.com"
+gcloud iam service-accounts add-iam-policy-binding $COMPUTE_SA \
+    --member="serviceAccount:$SERVICE_ACCOUNT" \
+    --role="roles/iam.serviceAccountUser"
+
 # Secret Manager Secret Accessor
 gcloud projects add-iam-policy-binding $PROJECT_ID \
     --member="serviceAccount:$SERVICE_ACCOUNT" \
