@@ -90,6 +90,7 @@ class PipelineOrchestrator:
                 "feedback": improvements.feedback,
                 "prosody_guide": improvements.prosody_guide,
                 "ssml_markup": improvements.ssml_markup,
+                "summary_feedback": improvements.summary_feedback,
             }
             logger.info(f"Improved text: {improvements.improved_text[:100]}...")
 

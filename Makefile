@@ -17,15 +17,30 @@ setup: ## Initial project setup
 
 install: ## Install dependencies
 	pip install -r requirements.txt
-	python -m spacy download en_core_web_sm
 	@echo "Dependencies installed successfully."
 
 install-dev: ## Install development dependencies
 	pip install -r requirements.txt
 	pip install pre-commit
 	pre-commit install
-	python -m spacy download en_core_web_sm
 	@echo "Development environment ready."
+
+test-install: ## Test installation and imports
+	@echo "Testing installation and imports..."
+	pip install -r requirements.txt
+	python -c "import pitchperfect; print('✅ Package imports successfully')"
+	python -c "from app.main import app; print('✅ FastAPI app imports successfully')"
+	python -c "from pitchperfect.pipeline.orchestrator import PipelineOrchestrator; print('✅ Pipeline imports successfully')"
+	python -c "import fastapi, torch, transformers, librosa, openai, elevenlabs; print('✅ Core dependencies import successfully')"
+	@echo "✅ Installation test passed!"
+
+clean-install: ## Clean environment and reinstall
+	@echo "Cleaning and reinstalling from scratch..."
+	pip freeze > temp_requirements.txt
+	pip uninstall -y -r temp_requirements.txt
+	pip install -r requirements.txt
+	rm temp_requirements.txt
+	@echo "✅ Clean installation completed!"
 
 clean: ## Clean temporary files and cache
 	find . -type f -name "*.pyc" -delete

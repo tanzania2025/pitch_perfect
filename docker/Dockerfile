@@ -38,9 +38,6 @@ COPY --chown=app:app requirements.txt ./
 # Install Python dependencies
 RUN pip install --user --no-cache-dir -r requirements.txt
 
-# Download spaCy model (required for NLP processing)
-RUN python -m spacy download en_core_web_sm
-
 # Copy only essential application code
 COPY --chown=app:app pitchperfect/ ./pitchperfect/
 COPY --chown=app:app app/ ./app/
@@ -60,7 +57,7 @@ ENV PATH="/home/app/.local/bin:${PATH}"
 # Expose the FastAPI port (Cloud Run uses PORT=8080)
 EXPOSE 8080
 
-# Health check for container orchestration  
+# Health check for container orchestration
 HEALTHCHECK --interval=30s --timeout=30s --start-period=60s --retries=3 \
     CMD curl -f http://localhost:${PORT:-8080}/health || exit 1
 

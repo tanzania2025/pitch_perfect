@@ -65,9 +65,7 @@ setup(
     },
     entry_points={
         "console_scripts": [
-            "pitchperfect=pitchperfect.cli:main",
-            "pitchperfect-demo=pitchperfect.scripts.demo:main",
-            "pitchperfect-preprocess=pitchperfect.scripts.preprocess_meld:main",
+            "pitchperfect-demo=scripts.demo:main",
         ],
     },
     include_package_data=True,

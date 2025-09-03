@@ -23,6 +23,7 @@ class ImprovementResult:
     issues: Dict
     feedback: Dict
     emphasis_words: List
+    summary_feedback: str
 
 
 class ImprovementGenerator:
@@ -102,6 +103,9 @@ class ImprovementGenerator:
 
         # Step 7: Generate feedback
         feedback = self._generate_feedback(issues, prosody_adjustment)
+        
+        # Step 8: Generate summary feedback
+        summary_feedback = self._generate_summary_feedback(feedback, issues.to_dict())
 
         logger.info("Improvement generation complete")
 
@@ -113,6 +117,7 @@ class ImprovementGenerator:
             issues=issues.to_dict(),
             feedback=feedback,
             emphasis_words=self.emphasis_identifier.to_simple_format(emphasis_words),
+            summary_feedback=summary_feedback,
         )
 
     def _create_prosody_guide(self, text: str, adjustment, emphasis_words) -> Dict:
@@ -160,3 +165,24 @@ class ImprovementGenerator:
             "severity": issues.severity,
             "issues_found": len(issues.text_issues) + len(issues.delivery_issues),
         }
+
+    def _generate_summary_feedback(self, feedback: Dict, issues: Dict) -> str:
+        """Generate user-friendly summary for final output"""
+        summary_parts = []
+        
+        # Main assessment
+        summary_parts.append(feedback["summary"])
+        
+        # Issues found
+        if feedback["issues_found"] > 0:
+            summary_parts.append(f"Found {feedback['issues_found']} areas for improvement.")
+        
+        # Key improvements made
+        if feedback["key_improvements"]:
+            summary_parts.append("Improvements: " + "; ".join(feedback["key_improvements"]))
+        
+        # Top speaking tip
+        if feedback["speaking_tips"]:
+            summary_parts.append("Key tip: " + feedback["speaking_tips"][0])
+        
+        return " ".join(summary_parts)
