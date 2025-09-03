@@ -44,7 +44,9 @@ steps:
       - '--set-env-vars'
       - 'PYTHONPATH=/home/app'
       - '--set-secrets'
-      - 'OPENAI_API_KEY=${_OPENAI_SECRET}:latest,ELEVENLABS_API_KEY=${_ELEVENLABS_SECRET}:latest'
+      - 'OPENAI_API_KEY=${_OPENAI_SECRET}:latest
+      - '--set-secrets'
+      - 'ELEVENLABS_API_KEY=${_ELEVENLABS_SECRET}:latest'
     id: 'deploy-cloudrun'
     waitFor: ['push-image']
 
