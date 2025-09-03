@@ -57,12 +57,12 @@ RUN pip install --user -e .
 # Add the user's local bin to PATH
 ENV PATH="/home/app/.local/bin:${PATH}"
 
-# Expose the FastAPI port
-EXPOSE 8000
+# Expose the FastAPI port (Cloud Run uses PORT=8080)
+EXPOSE 8080
 
-# Health check for container orchestration
+# Health check for container orchestration  
 HEALTHCHECK --interval=30s --timeout=30s --start-period=60s --retries=3 \
-    CMD curl -f http://localhost:8000/health || exit 1
+    CMD curl -f http://localhost:${PORT:-8080}/health || exit 1
 
 # Default command to run the FastAPI server
 CMD ["python", "app/main.py"]
