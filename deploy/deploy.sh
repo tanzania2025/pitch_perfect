@@ -192,23 +192,11 @@ main() {
     check_requirements
     setup_gcloud
     
-    # Skip API enablement if running in CI/CD
-    if [ -z "$CI" ]; then
-        enable_apis
-    else
-        echo -e "${YELLOW}⚠️  Skipping API enablement in CI environment${NC}"
-        echo -e "${YELLOW}   Make sure APIs are already enabled in your project${NC}"
-    fi
+    enable_apis
     
     create_repository
     
-    # Skip secret creation in CI - secrets should already exist
-    if [ -z "$CI" ]; then
-        create_secrets
-    else
-        echo -e "${YELLOW}⚠️  Skipping interactive secret creation in CI environment${NC}"
-        echo -e "${YELLOW}   Make sure secrets are already created in Secret Manager${NC}"
-    fi
+    create_secrets
     
     build_and_push
     deploy_cloudrun
