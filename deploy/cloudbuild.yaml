@@ -45,7 +45,6 @@ substitutions:
 
 # Build configuration options
 options:
-  logging: CLOUD_LOGGING_ONLY  # This fixes the error you were seeing
-  defaultLogsBucketBehavior: REGIONAL_USER_OWNED_BUCKET  # Alternative fix for service account
+  defaultLogsBucketBehavior: REGIONAL_USER_OWNED_BUCKET  # Required when using service account
   machineType: 'E2_HIGHCPU_8'
   diskSizeGb: 100
