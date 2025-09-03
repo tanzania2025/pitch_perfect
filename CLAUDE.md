@@ -123,6 +123,7 @@ When errors are shown or fixes are needed:
 1. Make fixes directly in the code
 2. Write as few new lines as possible
 3. Prefer modifying existing code over creating new files
+4. Always explain why the error occurred and what was fixed
 
 ## Feature Design Guidelines
 

@@ -5,41 +5,34 @@ on:
     branches: [master]
 
 env:
-  PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
-  REGION: ${{ secrets.GCP_REGION }}
-  REPOSITORY: ${{ secrets.GCP_REPOSITORY }}
-  SERVICE_NAME: ${{ secrets.GCP_SERVICE_NAME }}
-  OPENAI_SECRET_NAME: ${{ secrets.OPENAI_SECRET_NAME }}
-  ELEVENLABS_SECRET_NAME: ${{ secrets.ELEVENLABS_SECRET_NAME }}
+  PROJECT_ID: pitchperfect-lewagon
+  REGION: europe-west1
+  REPOSITORY: pitch-perfect-repo
+  SERVICE_NAME: pitch-perfect-backend
+  OPENAI_SECRET_NAME: openai-api-key
+  ELEVENLABS_SECRET_NAME: elevenlabs-api-key
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
-
-    permissions:
-      contents: 'read'
-      id-token: 'write'
 
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
 
     - name: Authenticate to Google Cloud
-      id: auth
       uses: google-github-actions/auth@v2
       with:
-        workload_identity_provider: ${{ secrets.WIF_PROVIDER }}
-        service_account: ${{ secrets.WIF_SERVICE_ACCOUNT }}
+        credentials_json: ${{ secrets.GCP_SA_KEY }}
 
     - name: Set up Cloud SDK
       uses: google-github-actions/setup-gcloud@v2
       with:
         project_id: ${{ env.PROJECT_ID }}
-        install_components: 'beta,cloud-build'
 
     - name: Build and deploy
       env:
-        SHA: ${{ github.sha }}
+        CI: true
       run: |
         chmod +x ./deploy/deploy.sh
         ./deploy/deploy.sh
