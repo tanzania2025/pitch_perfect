@@ -307,7 +307,7 @@ if __name__ == "__main__":
     # Create necessary directories
     Path("outputs/generated_audio").mkdir(parents=True, exist_ok=True)
     Path("outputs/logs").mkdir(parents=True, exist_ok=True)
-    port = int(os.environ.get("PORT", 8000))
+    port = int(os.environ.get("PORT", 8080))
     # Run the server
     uvicorn.run(
         "app.main:app", host="0.0.0.0", port=port, reload=True, log_level="info"
