@@ -41,6 +41,8 @@ class Synthesizer:
 
         # Use provided voice or default
         voice = voice_id or self.default_voice
+        logger.info(f"[SYNTHESIS] Received voice_id parameter: {voice_id}")
+        logger.info(f"[SYNTHESIS] Using voice: {voice} (default: {self.default_voice})")
 
         # Process SSML if provided
         if ssml:
@@ -53,7 +55,7 @@ class Synthesizer:
         # Generate audio
         try:
             logger.info(f"Synthesizing with voice: {voice}")
-            audio_bytes = self.client.generate(text, voice)
+            audio_bytes = self.client.generate(text=text, voice_id=voice)
 
             # Save if path provided
             if output_path:

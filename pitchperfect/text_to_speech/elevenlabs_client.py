@@ -26,6 +26,9 @@ class ElevenLabsClient:
         """Generate speech from text"""
         voice = voice_id or self.default_voice
         model = model or "eleven_monolingual_v1"
+        
+        logger.info(f"[ELEVENLABS_CLIENT] Received voice_id: {voice_id}")
+        logger.info(f"[ELEVENLABS_CLIENT] Using voice: {voice} (default: {self.default_voice})")
 
         try:
             audio = generate(text=text, voice=voice, model=model)

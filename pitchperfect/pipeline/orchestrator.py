@@ -98,6 +98,11 @@ class PipelineOrchestrator:
             logger.info("Step 5/5: Synthesizing improved speech...")
 
             try:
+                # Get voice_id from user preferences
+                voice_id = user_preferences.get("voice_id") if user_preferences else None
+                logger.info(f"[ORCHESTRATOR] Received user_preferences: {user_preferences}")
+                logger.info(f"[ORCHESTRATOR] Extracted voice_id: {voice_id}")
+                
                 # Clone voice if sample provided
                 if voice_sample_path:
                     logger.info("Cloning voice from sample...")
@@ -108,7 +113,9 @@ class PipelineOrchestrator:
                     )
                 else:
                     synthesis_result = self.synthesizer.synthesize(
-                        ssml=improvements.ssml_markup, output_path=output_path
+                        ssml=improvements.ssml_markup, 
+                        output_path=output_path,
+                        voice_id=voice_id
                     )
 
                 results["synthesis"] = synthesis_result

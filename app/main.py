@@ -13,13 +13,14 @@ from typing import Any, Dict, Optional
 import base64
 import aiofiles
 import uvicorn
-from fastapi import FastAPI, File, HTTPException, UploadFile
+from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
 
 from config import load_config
 from pitchperfect.pipeline.orchestrator import PipelineOrchestrator
+from pitchperfect.text_to_speech.elevenlabs_client import ElevenLabsClient
 
 # Setup logging
 logging.basicConfig(level=logging.INFO)
@@ -31,6 +32,14 @@ class ProcessRequest(BaseModel):
     target_style: str = "professional"
     improvement_focus: str = "all"
     save_audio: bool = True
+    voice_id: Optional[str] = None
+
+
+class VoiceOption(BaseModel):
+    voice_id: str
+    name: str
+    category: str
+    description: str
 
 
 class HealthCheck(BaseModel):
@@ -204,9 +213,10 @@ async def process_audio(
     voice_sample: Optional[UploadFile] = File(
         None, description="Optional voice sample for cloning"
     ),
-    target_style: str = "professional",
-    improvement_focus: str = "all",
-    save_audio: bool = True,
+    target_style: str = Form("professional"),
+    improvement_focus: str = Form("all"),
+    save_audio: bool = Form(True),
+    voice_id: Optional[str] = Form(None),
 ):
     """
     Process uploaded audio file through the speech improvement pipeline
@@ -216,7 +226,13 @@ async def process_audio(
     - **target_style**: professional, casual, academic, motivational
     - **improvement_focus**: all, clarity, confidence, engagement
     - **save_audio**: Whether to save the improved audio file
+    - **voice_id**: Optional ElevenLabs voice ID for TTS (use /voices endpoint to get options)
     """
+    
+    logger.info(f"[ENDPOINT] Received parameters:")
+    logger.info(f"  - voice_id: {voice_id}")
+    logger.info(f"  - target_style: {target_style}")
+    logger.info(f"  - improvement_focus: {improvement_focus}")
 
     # Validate file types
     allowed_types = [
@@ -257,7 +273,11 @@ async def process_audio(
         preferences = {
             "target_style": target_style,
             "improvement_focus": improvement_focus,
+            "voice_id": voice_id,
         }
+        
+        logger.info(f"[MAIN.PY] Received voice_id: {voice_id}")
+        logger.info(f"[MAIN.PY] Preferences: {preferences}")
 
         results = speech_service.process_speech(
             audio_path=audio_path,
@@ -306,6 +326,38 @@ async def get_config():
             config["text_to_speech"][key] = "***HIDDEN***"
 
     return config
+
+
+@app.get("/voices")
+async def get_available_voices():
+    """Get available ElevenLabs voices for selection"""
+    try:
+        from elevenlabs import set_api_key, voices
+        
+        # Get API key from config
+        api_key = speech_service.config.get("text_to_speech", {}).get("api_key")
+        if not api_key:
+            raise HTTPException(status_code=500, detail="ElevenLabs API key not configured")
+        
+        set_api_key(api_key)
+        
+        # Get available voices
+        available_voices = voices()
+        
+        voice_options = []
+        for voice in available_voices:
+            voice_options.append(VoiceOption(
+                voice_id=voice.voice_id,
+                name=voice.name,
+                category=getattr(voice, 'category', 'Unknown'),
+                description=getattr(voice, 'description', 'No description available')
+            ))
+        
+        return {"voices": voice_options}
+        
+    except Exception as e:
+        logger.error(f"Failed to fetch voices: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to fetch voices: {str(e)}")
 
 
 if __name__ == "__main__":
