@@ -22,7 +22,9 @@ try:
     for voice in available_voices:
         print(f"Name: {voice.name}")
         print(f"ID: {voice.voice_id}")
-        print(f"Category: {voice.category}")
+        print(f"Category: {getattr(voice, 'category', 'Unknown')}")
+        print(f"Description: {getattr(voice, 'description', 'No description')}")
+        print(f"Labels: {getattr(voice, 'labels', {})}")
         print("-" * 50)
 
 except Exception as e:

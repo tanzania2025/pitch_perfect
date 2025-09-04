@@ -74,11 +74,11 @@ WhisperForConditionalGeneration.from_pretrained('openai/whisper-base')"
 
 
 # Expose the FastAPI port (Cloud Run uses PORT=8080)
-EXPOSE 8080
+EXPOSE $PORT
 
-# Health check for container orchestration
-HEALTHCHECK --interval=30s --timeout=30s --start-period=60s --retries=3 \
-    CMD curl -f http://localhost:${PORT:-8080}/health || exit 1
+# # Health check for container orchestration
+# HEALTHCHECK --interval=30s --timeout=30s --start-period=60s --retries=3 \
+#     CMD curl -f http://localhost:${PORT:-8080}/health || exit 1
 
 # Default command to run the FastAPI server
 CMD ["python", "app/main.py"]
