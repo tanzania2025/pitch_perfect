@@ -191,8 +191,14 @@ class SpeechImprovementService:
             return {"error": str(e), "status": "failed"}
 
 
-# Initialize service
-speech_service = SpeechImprovementService()
+# Initialize service with lazy loading for faster startup
+speech_service = None
+
+def get_speech_service():
+    global speech_service
+    if speech_service is None:
+        speech_service = SpeechImprovementService()
+    return speech_service
 
 
 @app.get("/", response_model=HealthCheck)
@@ -254,7 +260,7 @@ async def process_audio(
 
     try:
         # Save uploaded files
-        audio_path = await speech_service.save_uploaded_file(audio_file, "audio")
+        audio_path = await get_speech_service().save_uploaded_file(audio_file, "audio")
 
         voice_sample_path = None
         if (
@@ -265,7 +271,7 @@ async def process_audio(
                     status_code=400,
                     detail=f"Unsupported voice sample format: {voice_sample.content_type}",
                 )
-            voice_sample_path = await speech_service.save_uploaded_file(
+            voice_sample_path = await get_speech_service().save_uploaded_file(
                 voice_sample, "voice_sample"
             )
 
@@ -279,7 +285,7 @@ async def process_audio(
         logger.info(f"[MAIN.PY] Received voice_id: {voice_id}")
         logger.info(f"[MAIN.PY] Preferences: {preferences}")
 
-        results = speech_service.process_speech(
+        results = get_speech_service().process_speech(
             audio_path=audio_path,
             voice_sample_path=voice_sample_path,
             preferences=preferences,
@@ -297,7 +303,7 @@ async def process_audio(
 @app.get("/download-audio/{filename}")
 async def download_audio(filename: str):
     """Download generated audio file"""
-    file_path = speech_service.output_dir / filename
+    file_path = get_speech_service().output_dir / filename
 
     if not file_path.exists():
         raise HTTPException(status_code=404, detail="Audio file not found")
@@ -308,14 +314,14 @@ async def download_audio(filename: str):
 @app.post("/cleanup")
 async def cleanup_temp_files(max_age_hours: int = 1):
     """Clean up temporary files older than specified hours"""
-    result = speech_service.cleanup_temp_files(max_age_hours)
+    result = get_speech_service().cleanup_temp_files(max_age_hours)
     return result
 
 
 @app.get("/config")
 async def get_config():
     """Get current configuration (excluding sensitive keys)"""
-    config = speech_service.config.copy()
+    config = get_speech_service().config.copy()
 
     # Remove sensitive information
     sensitive_keys = ["api_key", "openai", "elevenlabs"]
@@ -335,7 +341,7 @@ async def get_available_voices():
         from elevenlabs import set_api_key, voices
 
         # Get API key from config
-        api_key = speech_service.config.get("text_to_speech", {}).get("api_key")
+        api_key = get_speech_service().config.get("text_to_speech", {}).get("api_key")
         if not api_key:
             raise HTTPException(status_code=500, detail="ElevenLabs API key not configured")
 
