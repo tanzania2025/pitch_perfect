@@ -365,7 +365,16 @@ if __name__ == "__main__":
     Path("outputs/generated_audio").mkdir(parents=True, exist_ok=True)
     Path("outputs/logs").mkdir(parents=True, exist_ok=True)
     port = int(os.environ.get("PORT", 8080))
+    
+    # Determine if we're running in production (Cloud Run)
+    is_production = os.environ.get("K_SERVICE") is not None
+    
     # Run the server
     uvicorn.run(
-        "app.main:app", host="0.0.0.0", port=port, reload=True, log_level="info"
+        "app.main:app", 
+        host="0.0.0.0", 
+        port=port, 
+        reload=not is_production,  # Disable reload in production
+        log_level="info",
+        timeout_keep_alive=300  # Keep connections alive longer
     )
