@@ -27,37 +27,29 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/* \
     && apt-get clean
 
-# Setup model cache directory (as root)
+# Setup model cache directory
 ENV TRANSFORMERS_CACHE=/opt/hf-cache \
     HF_HOME=/opt/hf-cache
-RUN mkdir -p /opt/hf-cache && chmod 755 /opt/hf-cache
-
-# Create non-root user for security
-RUN useradd --create-home --shell /bin/bash app
-USER app
-WORKDIR /home/app
+RUN mkdir -p /opt/hf-cache
 
 # Copy requirements first for better Docker layer caching
-COPY --chown=app:app requirements.txt ./
+COPY requirements.txt ./
 
 # Install Python dependencies
-RUN pip install --user --no-cache-dir -r requirements.txt
+RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy only essential application code
-COPY --chown=app:app pitchperfect/ ./pitchperfect/
-COPY --chown=app:app app/ ./app/
-COPY --chown=app:app config/ ./config/
-COPY --chown=app:app setup.py ./
-
+COPY pitchperfect/ ./pitchperfect/
+COPY app/ ./app/
+COPY config/ ./config/
+COPY setup.py ./
 
 # Create necessary directories
 RUN mkdir -p outputs/logs outputs/generated_audio data/processed models/pretrained
 
 # Install the package in development mode
-RUN pip install --user -e .
+RUN pip install -e .
 
-# Add the user's local bin to PATH
-ENV PATH="/home/app/.local/bin:${PATH}"
 
 # --- RoBERTa (base encoder) ---
 RUN python -c "from transformers import AutoTokenizer, AutoModel; \
