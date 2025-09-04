@@ -27,6 +27,11 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/* \
     && apt-get clean
 
+# Setup model cache directory (as root)
+ENV TRANSFORMERS_CACHE=/opt/hf-cache \
+    HF_HOME=/opt/hf-cache
+RUN mkdir -p /opt/hf-cache && chmod 755 /opt/hf-cache
+
 # Create non-root user for security
 RUN useradd --create-home --shell /bin/bash app
 USER app
@@ -53,11 +58,6 @@ RUN pip install --user -e .
 
 # Add the user's local bin to PATH
 ENV PATH="/home/app/.local/bin:${PATH}"
-
-# (optional) keep model cache inside the image in a known path
-ENV TRANSFORMERS_CACHE=/opt/hf-cache \
-    HF_HOME=/opt/hf-cache
-RUN mkdir -p /opt/hf-cache
 
 # --- RoBERTa (base encoder) ---
 RUN python -c "from transformers import AutoTokenizer, AutoModel; \
