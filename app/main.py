@@ -10,6 +10,7 @@ import tempfile
 from datetime import datetime
 from typing import Any, Dict, Optional
 
+import base64
 import aiofiles
 import uvicorn
 from fastapi import FastAPI, File, HTTPException, UploadFile
@@ -136,8 +137,12 @@ class SpeechImprovementService:
                 results["synthesis"]["filename"] = output_filename
                 logger.info(f"Audio saved: {output_path}")
 
-                # Remove binary audio data from response to avoid JSON serialization issues
-                del results["synthesis"]["audio"]
+                # Convert binary audio to base64 for JSON serialization
+                audio_bytes = results["synthesis"]["audio"]
+                audio_base64 = base64.b64encode(audio_bytes).decode('utf-8')
+                results["synthesis"]["audio_data"] = audio_base64
+                results["synthesis"]["audio_format"] = "mp3"  # Specify format for frontend
+                del results["synthesis"]["audio"]  # Remove original bytes
 
             # Add session info
             results["session_id"] = session_id
