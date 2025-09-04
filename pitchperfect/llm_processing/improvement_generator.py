@@ -167,22 +167,40 @@ class ImprovementGenerator:
         }
 
     def _generate_summary_feedback(self, feedback: Dict, issues: Dict) -> str:
-        """Generate user-friendly summary for final output"""
+        """Generate user-friendly, personable summary for final output"""
         summary_parts = []
         
-        # Main assessment
-        summary_parts.append(feedback["summary"])
+        # Start with a warm greeting and main assessment
+        main_summary = feedback.get("summary", "")
+        if main_summary:
+            # Make it more personal by adding encouraging language
+            if "good" in main_summary.lower() or "well" in main_summary.lower():
+                summary_parts.append(f"Great work! {main_summary}")
+            elif "improve" in main_summary.lower():
+                summary_parts.append(f"You're on the right track! {main_summary}")
+            else:
+                summary_parts.append(f"Here's what I noticed: {main_summary}")
         
-        # Issues found
-        if feedback["issues_found"] > 0:
-            summary_parts.append(f"Found {feedback['issues_found']} areas for improvement.")
+        # Issues found - make it encouraging
+        issues_count = feedback.get("issues_found", 0)
+        if issues_count > 0:
+            if issues_count == 1:
+                summary_parts.append("I found one area where you can shine even brighter.")
+            else:
+                summary_parts.append("I spotted a few areas where you can elevate your speaking.")
         
-        # Key improvements made
-        if feedback["key_improvements"]:
-            summary_parts.append("Improvements: " + "; ".join(feedback["key_improvements"]))
+        # Key improvements made - focus on benefits
+        key_improvements = feedback.get("key_improvements", [])
+        if key_improvements:
+            summary_parts.append("Your improved version focuses on " + " and ".join(key_improvements).lower() + ".")
         
-        # Top speaking tip
-        if feedback["speaking_tips"]:
-            summary_parts.append("Key tip: " + feedback["speaking_tips"][0])
+        # Top speaking tip - make it actionable and encouraging (exclude numerical tips)
+        speaking_tips = feedback.get("speaking_tips", [])
+        if speaking_tips:
+            # Filter out tips with numbers
+            non_numerical_tips = [tip for tip in speaking_tips if not any(char.isdigit() for char in tip)]
+            if non_numerical_tips:
+                tip = non_numerical_tips[0]
+                summary_parts.append(f"Pro tip: {tip}")
         
         return " ".join(summary_parts)
