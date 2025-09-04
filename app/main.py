@@ -228,7 +228,7 @@ async def process_audio(
     - **save_audio**: Whether to save the improved audio file
     - **voice_id**: Optional ElevenLabs voice ID for TTS (use /voices endpoint to get options)
     """
-    
+
     logger.info(f"[ENDPOINT] Received parameters:")
     logger.info(f"  - voice_id: {voice_id}")
     logger.info(f"  - target_style: {target_style}")
@@ -275,7 +275,7 @@ async def process_audio(
             "improvement_focus": improvement_focus,
             "voice_id": voice_id,
         }
-        
+
         logger.info(f"[MAIN.PY] Received voice_id: {voice_id}")
         logger.info(f"[MAIN.PY] Preferences: {preferences}")
 
@@ -333,28 +333,33 @@ async def get_available_voices():
     """Get available ElevenLabs voices for selection"""
     try:
         from elevenlabs import set_api_key, voices
-        
+
         # Get API key from config
         api_key = speech_service.config.get("text_to_speech", {}).get("api_key")
         if not api_key:
             raise HTTPException(status_code=500, detail="ElevenLabs API key not configured")
-        
+
         set_api_key(api_key)
-        
+
         # Get available voices
         available_voices = voices()
-        
+
         voice_options = []
         for voice in available_voices:
+            # Ensure description is never None
+            description = getattr(voice, 'description', None)
+            if description is None or description == '':
+                description = 'No description available.'
+
             voice_options.append(VoiceOption(
                 voice_id=voice.voice_id,
                 name=voice.name,
                 category=getattr(voice, 'category', 'Unknown'),
-                description=getattr(voice, 'description', 'No description available')
+                description=description
             ))
-        
+
         return {"voices": voice_options}
-        
+
     except Exception as e:
         logger.error(f"Failed to fetch voices: {e}")
         raise HTTPException(status_code=500, detail=f"Failed to fetch voices: {str(e)}")
@@ -365,15 +370,15 @@ if __name__ == "__main__":
     Path("outputs/generated_audio").mkdir(parents=True, exist_ok=True)
     Path("outputs/logs").mkdir(parents=True, exist_ok=True)
     port = int(os.environ.get("PORT", 8080))
-    
+
     # Determine if we're running in production (Cloud Run)
     is_production = os.environ.get("K_SERVICE") is not None
-    
+
     # Run the server
     uvicorn.run(
-        "app.main:app", 
-        host="0.0.0.0", 
-        port=port, 
+        "app.main:app",
+        host="0.0.0.0",
+        port=port,
         reload=not is_production,  # Disable reload in production
         log_level="info",
         timeout_keep_alive=300  # Keep connections alive longer
