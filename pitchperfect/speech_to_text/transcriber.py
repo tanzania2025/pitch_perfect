@@ -2,7 +2,10 @@
 import logging
 from typing import Dict, Optional
 
-import whisper
+import librosa
+import torch
+from transformers import WhisperProcessor, WhisperForConditionalGeneration
+
 
 logger = logging.getLogger(__name__)
 
@@ -13,9 +16,13 @@ class Transcriber:
     def __init__(self, config: Optional[Dict] = None):
         self.config = config or {}
         model_size = self.config.get("speech_to_text", {}).get("model_size", "base")
-        self.model = whisper.load_model(model_size)
+        model_name = f"openai/whisper-{model_size}"
+        
+        self.processor = WhisperProcessor.from_pretrained(model_name)
+        self.model = WhisperForConditionalGeneration.from_pretrained(model_name)
         self.language = self.config.get("speech_to_text", {}).get("language", "en")
-        logger.info(f"Transcriber initialized with Whisper {model_size}")
+        
+        logger.info(f"Transcriber initialized with {model_name}")
 
     def transcribe(self, audio_path: str) -> Dict:
         """
@@ -25,15 +32,25 @@ class Transcriber:
             Dict with text, segments, and confidence
         """
         try:
-            result = self.model.transcribe(
-                audio_path, language=self.language, word_timestamps=True
-            )
+            # Load and preprocess audio
+            audio, sr = librosa.load(audio_path, sr=16000)
+            
+            # Process audio through Whisper
+            input_features = self.processor(audio, sampling_rate=16000, return_tensors="pt").input_features
+            
+            # Generate transcription
+            with torch.no_grad():
+                predicted_ids = self.model.generate(input_features, return_timestamps=True)
+            
+            # Decode the transcription
+            result = self.processor.batch_decode(predicted_ids, skip_special_tokens=True)
+            text = result[0] if result else ""
 
             return {
-                "text": result["text"].strip(),
-                "segments": result.get("segments", []),
-                "language": result.get("language", self.language),
-                "confidence": self._calculate_confidence(result),
+                "text": text.strip(),
+                "segments": [],  # Transformers Whisper doesn't provide segments by default
+                "language": self.language,
+                "confidence": 0.8,  # Default confidence since segments aren't available
             }
         except Exception as e:
             logger.error(f"Transcription failed: {e}")

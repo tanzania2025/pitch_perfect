@@ -2,8 +2,7 @@
 import logging
 from typing import Dict, List, Optional
 
-import torch
-from transformers import pipeline
+from transformers import AutoTokenizer, AutoModelForSequenceClassification, pipeline
 
 from .preprocessing import TextPreprocessor
 
@@ -22,10 +21,17 @@ class TextSentimentAnalyzer:
             "model", "j-hartmann/emotion-english-distilroberta-base"
         )
 
-        # Initialize transformer pipeline
-        device = 0 if torch.cuda.is_available() else -1
+        # Load tokenizer and model from cache
+        self.tokenizer = AutoTokenizer.from_pretrained(model_name)
+        self.model = AutoModelForSequenceClassification.from_pretrained(model_name)
+        
+        # Initialize pipeline with loaded model
         self.classifier = pipeline(
-            "text-classification", model=model_name, device=device, top_k=None
+            "text-classification", 
+            model=self.model, 
+            tokenizer=self.tokenizer,
+            device=-1,  # CPU only
+            top_k=None
         )
         logger.info(f"Sentiment analyzer initialized with {model_name}")
 

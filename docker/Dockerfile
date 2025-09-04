@@ -54,6 +54,33 @@ RUN pip install --user -e .
 # Add the user's local bin to PATH
 ENV PATH="/home/app/.local/bin:${PATH}"
 
+# (optional) keep model cache inside the image in a known path
+ENV TRANSFORMERS_CACHE=/opt/hf-cache \
+    HF_HOME=/opt/hf-cache
+RUN mkdir -p /opt/hf-cache
+
+# --- RoBERTa (base encoder) ---
+RUN python -c "from transformers import AutoTokenizer, AutoModel; \
+AutoTokenizer.from_pretrained('roberta-base'); \
+AutoModel.from_pretrained('roberta-base')"
+
+
+# If you specifically need a classifier head instead:
+# RUN python -c "from transformers import AutoTokenizer, AutoModelForSequenceClassification; \
+# AutoTokenizer.from_pretrained('roberta-base'); \
+# AutoModelForSequenceClassification.from_pretrained('roberta-base')"
+
+# --- Emotion RoBERTa ---
+RUN python -c "from transformers import AutoTokenizer, AutoModelForSequenceClassification; \
+AutoTokenizer.from_pretrained('j-hartmann/emotion-english-distilroberta-base'); \
+AutoModelForSequenceClassification.from_pretrained('j-hartmann/emotion-english-distilroberta-base')"
+
+# --- Whisper (base) ---
+RUN python -c "from transformers import WhisperProcessor, WhisperForConditionalGeneration; \
+WhisperProcessor.from_pretrained('openai/whisper-base'); \
+WhisperForConditionalGeneration.from_pretrained('openai/whisper-base')"
+
+
 # Expose the FastAPI port (Cloud Run uses PORT=8080)
 EXPOSE 8080
 
